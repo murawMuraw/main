@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Карта с кругом 35 км по клику</title>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+  <script>
+    ymaps.ready(function () {
+      // Инициализируем карту без центра (временно ставим Минск)
+      const map = new ymaps.Map("map", {
+        center: [0, 0], // Стартовая точка
+        zoom: 7
+      });
+
+      let circle = null;
+      let isFirstClick = true;
+
+      map.events.add('click', function (e) {
+        const coords = e.get('coords');
+
+        // При первом клике — меняем центр карты
+        if (isFirstClick) {
+          map.setCenter(coords, 9); // центр и зум
+          isFirstClick = false;
+        }
+
+        // Удаляем предыдущий круг
+        if (circle) {
+          map.geoObjects.remove(circle);
+        }
+
+        // Создаем новый круг радиусом 15 км
+        circle = new ymaps.Circle([
+          coords,
+          15000
+        ], {}, {
+          fillColor: "#FF0000",
+          fillOpacity: 0.2,
+          strokeColor: "#FF0000",
+          strokeOpacity: 0.6,
+          strokeWidth: 2
+        });
+
+        map.geoObjects.add(circle);
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="map"></div>
+</body>
+</html>
