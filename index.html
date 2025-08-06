@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с радиусом 15 км (Яндекс)</title>
+  <title>Карта с ветром (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -15,101 +15,101 @@
       position: absolute;
       top: 10px;
       left: 10px;
-      z-index: 1000;
+      z-index: 100;
       background: rgba(255, 255, 255, 0.9);
-      padding: 10px;
-      border-radius: 8px;
-      font-family: sans-serif;
+      padding: 8px;
+      border-radius: 5px;
+      font-family: Arial, sans-serif;
       font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <div id="windInfo">Загрузка ветра...</div>
+  <div id="windInfo">Получение данных о ветре...</div>
   <div id="map"></div>
 
   <script>
-    let windDiv = document.getElementById("windInfo");
-    const apiKey = "080b3dab3f26f4e8d44b5d87f4c3ee78"; // 🔁 ВСТАВЬ СЮДА СВОЙ КЛЮЧ OpenWeatherMap
+    let map, circle, windDirection = 0, windSpeed = 0;
+    let circleCoords = [51.5, 0.0]; // Гринвич
+    const radius = 15000; // радиус круга 15 км
 
-    function updateWindData(lat, lon) {
-      fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}&lang=ru`)
-        .then(response => response.json())
+    ymaps.ready(init);
+
+    function init() {
+      map = new ymaps.Map("map", {
+        center: circleCoords,
+        zoom: 8
+      });
+
+      circle = new ymaps.Circle([circleCoords, radius], {}, {
+        fillColor: "#87CEEB",
+        fillOpacity: 0.2,
+        strokeColor: "#1E90FF",
+        strokeOpacity: 0.8,
+        strokeWidth: 2
+      });
+
+      map.geoObjects.add(circle);
+
+      getWindData();
+
+      // каждые 60 секунд обновлять позицию круга
+      setInterval(() => {
+        moveCircleWithWind();
+      }, 60000);
+    }
+
+    function getWindData() {
+      // Укажи свой API-ключ OpenWeatherMap ниже
+      const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
+      const [lat, lon] = circleCoords;
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+      fetch(url)
+        .then(res => res.json())
         .then(data => {
-          if (data.wind) {
-            const speed = data.wind.speed;
-            const deg = data.wind.deg;
-            const dir = getWindDirection(deg);
-            windDiv.innerHTML = `🌬 Ветер: ${speed} м/с, ${dir} (${deg}°)`;
-          } else {
-            windDiv.innerHTML = "Нет данных о ветре";
-          }
+          windSpeed = data.wind.speed; // м/с
+          windDirection = data.wind.deg; // градусы
+          updateWindInfo();
         })
         .catch(err => {
-          windDiv.innerHTML = "Ошибка загрузки ветра";
+          document.getElementById("windInfo").textContent = "Ошибка загрузки ветра";
           console.error(err);
         });
     }
 
-    function getWindDirection(deg) {
-      const dirs = ['северный', 'северо-восточный', 'восточный', 'юго-восточный', 'южный', 'юго-западный', 'западный', 'северо-западный'];
-      const index = Math.round(deg / 45) % 8;
-      return dirs[index];
+    function updateWindInfo() {
+      document.getElementById("windInfo").textContent =
+        `Ветер: ${windSpeed} м/с, Направление: ${windDirection}°`;
     }
 
-    ymaps.ready(function () {
-      const center = [51.5, 0.0]; // Гринвич
-      const map = new ymaps.Map("map", {
-        center: center,
-        zoom: 8
-      });
+    function moveCircleWithWind() {
+      const distancePerMinute = windSpeed * 60; // метров
 
-      let circle;
+      const newCoords = movePoint(circleCoords, distancePerMinute, windDirection);
+      circleCoords = newCoords;
 
-      map.events.add('click', function (e) {
-        const coords = e.get('coords');
+      circle.geometry.setCoordinates(newCoords);
+      map.setCenter(newCoords);
+    }
 
-        if (circle) {
-          map.geoObjects.remove(circle);
-        }
+    // Функция для перемещения точки на заданное расстояние и угол
+    function movePoint([lat, lon], distanceMeters, bearingDegrees) {
+      const R = 6371000; // радиус Земли в метрах
+      const bearing = bearingDegrees * Math.PI / 180;
+      const lat1 = lat * Math.PI / 180;
+      const lon1 = lon * Math.PI / 180;
 
-        circle = new ymaps.Circle([
-          coords,
-          15000 // радиус 15 км
-        ], {}, {
-          fillColor: "#87CEEB",
-          fillOpacity: 0.1,
-          strokeColor: "#87CEEB",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
+      const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distanceMeters / R) +
+                  Math.cos(lat1) * Math.sin(distanceMeters / R) * Math.cos(bearing));
+      const lon2 = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(distanceMeters / R) * Math.cos(lat1),
+                                     Math.cos(distanceMeters / R) - Math.sin(lat1) * Math.sin(lat2));
 
-        map.geoObjects.add(circle);
-        map.setCenter(coords);
-
-        updateWindData(coords[0], coords[1]);
-      });
-
-      // начальная загрузка ветра по центру карты
-      updateWindData(center[0], center[1]);
-
-      // обновляем ветер каждую минуту
-      setInterval(() => {
-        const currentCenter = map.getCenter();
-        updateWindData(currentCenter[0], currentCenter[1]);
-      }, 60000);
-    });
+      return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+    }
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
 
 
 
