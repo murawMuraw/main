@@ -1,52 +1,69 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Карта с радиусом 15 км (Яндекс)</title>
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
-  <style>
-    html, body, #map {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-  </style>
-  <script>
-    ymaps.ready(function () {
-      const map = new ymaps.Map("map", {
-        center: [51.5,0.0], // Гринвич
-        zoom: 8
-      });
+<script>
+  let circle, wind = {speed: 0, deg: 0}; // deg — направление в градусах
 
-      let circle;
+  // Получение ветра из OpenWeather
+  async function fetchWind(lat, lon) {
+    const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
 
-      map.events.add('click', function (e) {
-        const coords = e.get('coords');
+    const response = await fetch(url);
+    const data = await response.json();
+    wind = data.wind;
+    console.log('Wind:', wind);
+  }
 
-        if (circle) {
-          map.geoObjects.remove(circle);
-        }
-
-        circle = new ymaps.Circle([
-          coords,
-          15000 // радиус в метрах (15 км)
-        ], {}, {
-          fillColor: "#87CEEB",
-          fillOpacity: 0.1,
-          strokeColor: "#87CEEB",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
-
-        map.geoObjects.add(circle);
-        map.setCenter(coords);
-      });
+  ymaps.ready(function () {
+    const map = new ymaps.Map("map", {
+      center: [51.5, 0.0],
+      zoom: 8
     });
-  </script>
-</head>
-<body>
-  <div id="map"></div>
-</body>
-</html>
 
+    map.events.add('click', async function (e) {
+      const coords = e.get('coords');
+
+      await fetchWind(coords[0], coords[1]);
+
+      if (circle) map.geoObjects.remove(circle);
+
+      circle = new ymaps.Circle([
+        coords,
+        15000
+      ], {}, {
+        fillColor: "#87CEEB",
+        fillOpacity: 0.1,
+        strokeColor: "#87CEEB",
+        strokeOpacity: 0.6,
+        strokeWidth: 2
+      });
+
+      map.geoObjects.add(circle);
+      map.setCenter(coords);
+
+      // Запуск перемещения
+      startWindMovement();
+    });
+
+    function startWindMovement() {
+      setInterval(() => {
+        if (!circle || wind.speed === 0) return;
+
+        const coords = circle.geometry.getCoordinates();
+        const lat = coords[0];
+        const lon = coords[1];
+
+        // Направление ветра в градусах (метео: откуда дует)
+        const angleRad = (wind.deg + 180) * Math.PI / 180;
+
+        // Простейшее смещение: 1 м/с ~ 0.00001 градуса в широте
+        const dx = Math.cos(angleRad) * wind.speed * 0.00001;
+        const dy = Math.sin(angleRad) * wind.speed * 0.00001;
+
+        const newLat = lat + dy;
+        const newLon = lon + dx;
+
+        circle.geometry.setCoordinates([newLat, newLon]);
+        map.setCenter([newLat, newLon]);
+      }, 3000); // обновление каждые 3 секунды
+    }
+  });
+</script>
