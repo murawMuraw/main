@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Прозрачный круг на затемнённой карте</title>
+  <title>Карта с радиусом 15 км (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -12,62 +12,41 @@
       padding: 0;
     }
   </style>
+  <script>
+    ymaps.ready(function () {
+      const map = new ymaps.Map("map", {
+        center: [51.5,0.0], // Гринвич
+        zoom: 8
+      });
+
+      let circle;
+
+      map.events.add('click', function (e) {
+        const coords = e.get('coords');
+
+        if (circle) {
+          map.geoObjects.remove(circle);
+        }
+
+        circle = new ymaps.Circle([
+          coords,
+          15000 // радиус в метрах (15 км)
+        ], {}, {
+          fillColor: "#87CEEB",
+          fillOpacity: 0.1,
+          strokeColor: "#87CEEB",
+          strokeOpacity: 0.6,
+          strokeWidth: 2
+        });
+
+        map.geoObjects.add(circle);
+        map.setCenter(coords);
+      });
+    });
+  </script>
 </head>
 <body>
-<div id="map"></div>
-
-<script>
-ymaps.ready(function () {
-  const center = [51.5, 0.0]; // Центр — Гринвич
-  const radius = 15000; // 15 км
-
-  const map = new ymaps.Map("map", {
-    center: center,
-    zoom: 10,
-    controls: []
-  });
-
-  // Внешняя рамка всей карты — большой прямоугольник
-  const outer = [
-    [85, -180],
-    [85, 180],
-    [-85, 180],
-    [-85, -180],
-    [85, -180]
-  ];
-
-  // Функция для генерации круга
-  function generateCircle(center, radiusMeters, pointsCount) {
-    const coords = [];
-    const R = 6378137; // Радиус Земли
-    const lat = center[0] * Math.PI / 180;
-    const lon = center[1] * Math.PI / 180;
-    const d = radiusMeters / R;
-
-    for (let i = 0; i <= pointsCount; i++) {
-      const angle = 2 * Math.PI * i / pointsCount;
-      const latOffset = Math.asin(Math.sin(lat) * Math.cos(d) +
-                          Math.cos(lat) * Math.sin(d) * Math.cos(angle));
-      const lonOffset = lon + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(lat),
-                                  Math.cos(d) - Math.sin(lat) * Math.sin(latOffset));
-      coords.push([
-        latOffset * 180 / Math.PI,
-        lonOffset * 180 / Math.PI
-      ]);
-    }
-    return coords;
-  }
-
-  const hole = generateCircle(center, radius, 100);
-
-  const mask = new ymaps.Polygon([outer, hole], {}, {
-    fillColor: 'rgba(0, 0, 0, 0.5)', // затемнение
-    fillRule: 'evenodd',
-    strokeWidth: 0
-  });
-
-  map.geoObjects.add(mask);
-});
-</script>
+  <div id="map"></div>
 </body>
 </html>
+
