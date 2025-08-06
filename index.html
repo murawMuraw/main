@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Прозрачный круг на затемнённой карте</title>
+  <title>Имитация прозрачного круга (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -10,6 +10,7 @@
       height: 100%;
       margin: 0;
       padding: 0;
+      background: white;
     }
   </style>
 </head>
@@ -23,63 +24,38 @@
       zoom: 9
     });
 
-    let mask;
-
-    // Центр круга — координаты Гринвича
-    const center = [51.5, 0.0];
-    const radius = 15000; // 15 км
-
-    // Внешний прямоугольник (вся карта)
-    const outer = [
-      [85, -179.9999],
-      [85, 179.9999],
-      [-85, 179.9999],
-      [-85, -179.9999],
-      [85, -179.9999]
-    ];
-
-    // Круговая "дырка" (по часовой стрелке — обязательно!)
-    const hole = generateCircle(center, radius, 100).reverse();
-
-    // Создаём маску: внешняя фигура + внутренняя дырка
-    mask = new ymaps.Polygon([outer, hole], {}, {
-      fillColor: 'rgba(128,128,128,0.5)', // серый полупрозрачный
-      strokeWidth: 0,
-      fillRule: 'evenodd' // ВАЖНО: говорит, что это "дырка"
+    // Серый полигон — затемняет всю карту
+    const grayPolygon = new ymaps.Polygon([[
+      [90, -180],
+      [90, 180],
+      [-90, 180],
+      [-90, -180],
+      [90, -180]
+    ]], {}, {
+      fillColor: 'rgba(128,128,128,0.5)',
+      strokeWidth: 0
     });
 
-    map.geoObjects.add(mask);
+    map.geoObjects.add(grayPolygon);
+
+    // Прозрачный "круг" — на самом деле это белый круг (фона страницы)
+    const fakeHole = new ymaps.Circle([
+      [51.5, 0.0],
+      15000 // радиус в метрах
+    ], {}, {
+      fillColor: '#FFFFFF', // цвет фона страницы
+      fillOpacity: 1.0,
+      strokeColor: '#FFFFFF',
+      strokeOpacity: 1.0,
+      strokeWidth: 0
+    });
+
+    map.geoObjects.add(fakeHole);
   });
-
-  // Генерация координат круга
-  function generateCircle(center, radius, points) {
-    const result = [];
-    const R = 6371000; // радиус Земли в метрах
-    const lat = center[0] * Math.PI / 180;
-    const lon = center[1] * Math.PI / 180;
-
-    for (let i = 0; i <= points; i++) {
-      const angle = (2 * Math.PI * i) / points;
-      const dx = radius * Math.cos(angle);
-      const dy = radius * Math.sin(angle);
-
-      const latOffset = dy / R;
-      const lonOffset = dx / (R * Math.cos(lat));
-
-      const latPoint = lat + latOffset;
-      const lonPoint = lon + lonOffset;
-
-      result.push([
-        latPoint * 180 / Math.PI,
-        lonPoint * 180 / Math.PI
-      ]);
-    }
-
-    return result;
-  }
 </script>
 </body>
 </html>
+
 
 
 
