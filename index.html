@@ -57,12 +57,16 @@
           zIndex: 100 // Устанавливаем zInd
         });
 
+      
+// Обновляем границы карты 
+       map.setBounds(map.geoObjects.getBounds());
+
+      
         // Добавляем полигон и круг на карту
         map.geoObjects.add(grayPolygon);
         map.geoObjects.add(circle);
         map.setCenter(coords);
-      // Обновляем границы карты 
-       map.setBounds(map.geoObjects.getBounds());
+      
       });
     });
   </script>
@@ -71,5 +75,6 @@
   <div id="map"></div>
 </body>
 </html>
+
 
 
