@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с радиусом 15 км (Яндекс)</title>
+  <title>Карта с прозрачным кругом (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -19,80 +19,68 @@
         zoom: 8
       });
 
-      let circle;
-      let grayPolygon;
+      let grayMask;
 
       map.events.add('click', function (e) {
         const coords = e.get('coords');
 
-        if (circle) {
-          map.geoObjects.remove(circle);
-          map.geoObjects.remove(grayPolygon);
+        if (grayMask) {
+          map.geoObjects.remove(grayMask);
         }
 
-        // Создаем круг
-        circle = new ymaps.Circle([
-          coords,
-          15000 // радиус в метрах (15 км)
-        ], {}, {
-          fillColor: "#87CEEB",
-          fillOpacity: 0.1,
-          strokeColor: "#87CEEB",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
+        // Внешний контур (вся карта)
+        const outerCoords = [
+          [90, -180],
+          [90, 180],
+          [-90, 180],
+          [-90, -180],
+          [90, -180]
+        ];
 
-        // Создаем серый полигон, который будет покрывать всю карту
-        grayPolygon = new ymaps.Polygon([
-          [
-            [90, -180], // верхний левый угол
-            [90, 180],  // верхний правый угол
-            [-90, 180], // нижний правый угол
-            [-90, -180],// нижний левый угол
-            [90, -180]  // замыкание полигона
-          ]
-        ], {}, {
-          fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.1
+        // Внутренний контур (дырка-круг)
+        const hole = generateCircle(coords, 15000, 100).reverse();
+
+        grayMask = new ymaps.Polygon([outerCoords, hole], {}, {
+          fillColor: 'rgba(128, 128, 128, 0.5)', // серый с прозрачностью
           strokeWidth: 0,
-     
+          fillRule: 'evenodd' // важно!
         });
 
-      
-     
-        // Добавляем полигон и круг на карту
-        map.geoObjects.add(grayPolygon);
-        map.geoObjects.add(circle);
+        map.geoObjects.add(grayMask);
         map.setCenter(coords);
-
-        // Создаем серый полигон, который будет покрывать всю карту
-grayPolygon = new ymaps.Polygon([
-    [
-        [90, -180], // верхний левый угол
-        [90, 180],  // верхний правый угол
-        [-90, 180], // нижний правый угол
-        [-90, -180],// нижний левый угол
-        [90, -180]  // замыкание полигона
-    ]
-], {}, {
-    fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.5
-    strokeWidth: 0,
-   
-});
-
-// Добавляем полигон и круг на карту
-map.geoObjects.add(grayPolygon);
-map.geoObjects.add(circle);
-
-
-      
       });
     });
+
+    // Генерация координат круга (дырки)
+    function generateCircle(center, radius, points) {
+      const coords = [];
+      const R = 6371000; // радиус Земли, м
+      const lat = center[0] * Math.PI / 180;
+      const lon = center[1] * Math.PI / 180;
+
+      for (let i = 0; i <= points; i++) {
+        const angle = 2 * Math.PI * i / points;
+        const dx = radius * Math.cos(angle);
+        const dy = radius * Math.sin(angle);
+
+        const latOffset = dy / R;
+        const lonOffset = dx / (R * Math.cos(lat));
+
+        coords.push([
+          (lat + latOffset) * 180 / Math.PI,
+          (lon + lonOffset) * 180 / Math.PI
+        ]);
+      }
+
+      return coords;
+    }
   </script>
 </head>
 <body>
   <div id="map"></div>
 </body>
 </html>
+
 
 
 
