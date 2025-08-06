@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с радиусом 15 км (Яндекс)</title>
+  <title>Карта с кругом и ветром</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -16,115 +16,118 @@
       top: 10px;
       left: 10px;
       padding: 10px;
-      background: rgba(255,255,255,0.8);
-      font-family: sans-serif;
+      background: rgba(255,255,255,0.9);
       z-index: 1000;
+      font-family: sans-serif;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-<div id="windInfo">Щелкните по карте, чтобы получить ветер</div>
+<div id="windInfo">Кликните на карте для создания круга</div>
 <div id="map"></div>
+
 <script>
   const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
-  let map, circle, windArrow, historyLine;
+  let map, circle, arrow, historyLine;
+  let moveTimer = null;
   const path = [];
 
+  // Получение ветра по координатам
   function getWindData(lat, lon) {
     return fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`)
-      .then(response => response.json())
+      .then(res => res.json())
       .then(data => {
-        const wind = data.wind;
         return {
-          speed: wind.speed,         // м/с
-          deg: wind.deg              // градусы (0 — север, 90 — восток)
+          speed: data.wind.speed,
+          deg: data.wind.deg
         };
       });
   }
 
-  ymaps.ready(function () {
-    const startCoords = [51.5, 0.0]; // Гринвич
-
+  ymaps.ready(() => {
     map = new ymaps.Map("map", {
-      center: startCoords,
-      zoom: 8
+      center: [51.5, 0.0],
+      zoom: 5
     });
 
-    // Круг в начальной точке
-    circle = new ymaps.Circle([
-      startCoords,
-      15000
-    ], {}, {
-      fillColor: "#87CEEB",
-      fillOpacity: 0.1,
-      strokeColor: "#87CEEB",
-      strokeOpacity: 0.6,
-      strokeWidth: 2
-    });
-    map.geoObjects.add(circle);
+    map.events.add('click', async function (e) {
+      const coords = e.get('coords');
 
-    // Стрелка ветра
-    windArrow = new ymaps.Placemark(startCoords, {
-      iconCaption: "Ветер"
-    }, {
-      preset: "islands#redArrowIcon",
-      iconRotate: true
-    });
-    map.geoObjects.add(windArrow);
+      // Если круг уже есть, удаляем старые объекты и останавливаем таймер
+      if (circle) {
+        map.geoObjects.remove(circle);
+        map.geoObjects.remove(arrow);
+        map.geoObjects.remove(historyLine);
+        clearInterval(moveTimer);
+        path.length = 0;
+      }
 
-    // Линия истории
-    historyLine = new ymaps.Polyline([], {}, {
-      strokeColor: "#0000FF",
-      strokeWidth: 2,
-      strokeOpacity: 0.5
-    });
-    map.geoObjects.add(historyLine);
-
-    // Клик по карте — обновляем ветер
-    map.events.add('click', function (e) {
-      const newCoords = e.get('coords');
-
-      getWindData(newCoords[0], newCoords[1]).then(wind => {
-        document.getElementById('windInfo').innerText =
-          `Скорость ветра: ${wind.speed} м/с\nНаправление: ${wind.deg}°`;
-
-        // Поворачиваем стрелку
-        windArrow.geometry.setCoordinates(circle.geometry.getCoordinates());
-        windArrow.options.set('iconRotation', wind.deg);
-
-        // Запускаем движение круга по ветру
-        moveCircle(wind.speed, wind.deg);
+      // Создание круга в месте клика
+      circle = new ymaps.Circle([
+        coords,
+        15000
+      ], {}, {
+        fillColor: "#87CEEB",
+        fillOpacity: 0.15,
+        strokeColor: "#87CEEB",
+        strokeWidth: 2,
+        strokeOpacity: 0.6
       });
+      map.geoObjects.add(circle);
+
+      // Стрелка направления ветра
+      arrow = new ymaps.Placemark(coords, {
+        iconCaption: "ветер"
+      }, {
+        preset: "islands#redArrowIcon",
+        iconRotate: true
+      });
+      map.geoObjects.add(arrow);
+
+      // Линия пути
+      historyLine = new ymaps.Polyline([], {}, {
+        strokeColor: "#0000FF",
+        strokeWidth: 2,
+        strokeOpacity: 0.6
+      });
+      map.geoObjects.add(historyLine);
+
+      // Начинаем движение
+      startMoving();
     });
   });
 
-  function moveCircle(speed, deg) {
-    const interval = 1000; // мс
-    const metersPerStep = speed; // т.к. speed в м/с
-    const angleRad = deg * Math.PI / 180;
-
-    const dx = metersPerStep * Math.sin(angleRad);
-    const dy = -metersPerStep * Math.cos(angleRad);
-
-    const move = () => {
+  function startMoving() {
+    moveTimer = setInterval(async () => {
       const [lat, lon] = circle.geometry.getCoordinates();
+      try {
+        const wind = await getWindData(lat, lon);
+        const angleRad = wind.deg * Math.PI / 180;
+        const speed = wind.speed; // м/с
 
-      const newLat = lat + (dy / 111320); // приблизительно м -> градусы широты
-      const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360)); // долгота
+        const dx = speed * Math.sin(angleRad);
+        const dy = -speed * Math.cos(angleRad);
 
-      const newCoords = [newLat, newLon];
-      circle.geometry.setCoordinates(newCoords);
-      windArrow.geometry.setCoordinates(newCoords);
+        const newLat = lat + (dy / 111320); // примерно м -> градусы широты
+        const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360)); // долгота
 
-      // Добавляем в историю
-      path.push(newCoords);
-      historyLine.geometry.setCoordinates(path);
-    };
+        const newCoords = [newLat, newLon];
+        circle.geometry.setCoordinates(newCoords);
+        arrow.geometry.setCoordinates(newCoords);
+        arrow.options.set('iconRotation', wind.deg);
 
-    // Останавливаем старое движение и запускаем новое
-    if (window.circleTimer) clearInterval(window.circleTimer);
-    path.push(circle.geometry.getCoordinates());
-    window.circleTimer = setInterval(move, interval);
+        // Добавляем точку в историю
+        path.push(newCoords);
+        historyLine.geometry.setCoordinates(path);
+
+        // Обновляем информацию
+        document.getElementById('windInfo').innerText =
+          `Скорость ветра: ${wind.speed.toFixed(1)} м/с\nНаправление: ${wind.deg}°`;
+      } catch (e) {
+        console.error("Ошибка получения ветра:", e);
+      }
+    }, 1000);
   }
 </script>
 </body>
