@@ -15,19 +15,22 @@
   <script>
     ymaps.ready(function () {
       const map = new ymaps.Map("map", {
-        center: [51.5,0.0], // Гринвич
+        center: [51.5, 0.0], // Гринвич
         zoom: 8
       });
 
       let circle;
+      let grayPolygon;
 
       map.events.add('click', function (e) {
         const coords = e.get('coords');
 
         if (circle) {
           map.geoObjects.remove(circle);
+          map.geoObjects.remove(grayPolygon);
         }
 
+        // Создаем круг
         circle = new ymaps.Circle([
           coords,
           15000 // радиус в метрах (15 км)
@@ -39,6 +42,22 @@
           strokeWidth: 2
         });
 
+        // Создаем серый полигон, который будет покрывать всю карту
+        grayPolygon = new ymaps.Polygon([
+          [
+            [90, -180], // верхний левый угол
+            [90, 180],  // верхний правый угол
+            [-90, 180], // нижний правый угол
+            [-90, -180],// нижний левый угол
+            [90, -180]  // замыкание полигона
+          ]
+        ], {}, {
+          fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.5
+          strokeWidth: 0
+        });
+
+        // Добавляем полигон и круг на карту
+        map.geoObjects.add(grayPolygon);
         map.geoObjects.add(circle);
         map.setCenter(coords);
       });
@@ -49,6 +68,3 @@
   <div id="map"></div>
 </body>
 </html>
-
-
-
