@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с прозрачным кругом (Яндекс)</title>
+  <title>Прозрачный круг на затемнённой карте</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -14,76 +14,73 @@
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  <script>
-    ymaps.ready(function () {
-      const map = new ymaps.Map("map", {
-        center: [51.5, 0.0], // Гринвич
-        zoom: 8
-      });
+<div id="map"></div>
 
-      let mask;
-
-      map.events.add('click', function (e) {
-        const coords = e.get('coords');
-
-        if (mask) {
-          map.geoObjects.remove(mask);
-        }
-
-        // Внешний контур — вся карта
-        const outer = [
-          [85, -179.9999],
-          [85, 179.9999],
-          [-85, 179.9999],
-          [-85, -179.9999],
-          [85, -179.9999]
-        ];
-
-        // Круг — "дырка", которая должна быть по часовой стрелке!
-        const hole = generateCircle(coords, 15000, 100).reverse();
-
-        // Создаём многоугольник с дыркой
-        mask = new ymaps.Polygon([outer, hole], {}, {
-          fillColor: 'rgba(128, 128, 128, 0.5)', // серый фон с прозрачностью
-          strokeWidth: 0,
-          fillRule: 'evenodd'
-        });
-
-        map.geoObjects.add(mask);
-        map.setCenter(coords);
-      });
+<script>
+  ymaps.ready(function () {
+    const map = new ymaps.Map("map", {
+      center: [51.5, 0.0],
+      zoom: 9
     });
 
-    // Функция генерации координат круга (вырез)
-    function generateCircle(center, radius, steps) {
-      const coords = [];
-      const R = 6371000; // радиус Земли в метрах
-      const latRad = center[0] * Math.PI / 180;
-      const lonRad = center[1] * Math.PI / 180;
+    let mask;
 
-      for (let i = 0; i <= steps; i++) {
-        const angle = (2 * Math.PI * i) / steps;
-        const dx = radius * Math.cos(angle);
-        const dy = radius * Math.sin(angle);
+    // Центр круга — координаты Гринвича
+    const center = [51.5, 0.0];
+    const radius = 15000; // 15 км
 
-        const dLat = dy / R;
-        const dLon = dx / (R * Math.cos(latRad));
+    // Внешний прямоугольник (вся карта)
+    const outer = [
+      [85, -179.9999],
+      [85, 179.9999],
+      [-85, 179.9999],
+      [-85, -179.9999],
+      [85, -179.9999]
+    ];
 
-        const lat = latRad + dLat;
-        const lon = lonRad + dLon;
+    // Круговая "дырка" (по часовой стрелке — обязательно!)
+    const hole = generateCircle(center, radius, 100).reverse();
 
-        coords.push([
-          lat * 180 / Math.PI,
-          lon * 180 / Math.PI
-        ]);
-      }
+    // Создаём маску: внешняя фигура + внутренняя дырка
+    mask = new ymaps.Polygon([outer, hole], {}, {
+      fillColor: 'rgba(128,128,128,0.5)', // серый полупрозрачный
+      strokeWidth: 0,
+      fillRule: 'evenodd' // ВАЖНО: говорит, что это "дырка"
+    });
 
-      return coords;
+    map.geoObjects.add(mask);
+  });
+
+  // Генерация координат круга
+  function generateCircle(center, radius, points) {
+    const result = [];
+    const R = 6371000; // радиус Земли в метрах
+    const lat = center[0] * Math.PI / 180;
+    const lon = center[1] * Math.PI / 180;
+
+    for (let i = 0; i <= points; i++) {
+      const angle = (2 * Math.PI * i) / points;
+      const dx = radius * Math.cos(angle);
+      const dy = radius * Math.sin(angle);
+
+      const latOffset = dy / R;
+      const lonOffset = dx / (R * Math.cos(lat));
+
+      const latPoint = lat + latOffset;
+      const lonPoint = lon + lonOffset;
+
+      result.push([
+        latPoint * 180 / Math.PI,
+        lonPoint * 180 / Math.PI
+      ]);
     }
-  </script>
+
+    return result;
+  }
+</script>
 </body>
 </html>
+
 
 
 
