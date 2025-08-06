@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с кругом и ветром</title>
+  <title>Прозрачный круг на карте</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -16,67 +16,29 @@
 <body>
   <div id="map"></div>
   <script>
-    let map, circle;
-    const centerLat = 51.5;
-    const centerLon = 0.0;
-
-    // функция загрузки данных о ветре
-    async function fetchWindAndUpdateCircle(lat, lon) {
-      const apiKey = 'ВАШ_КЛЮЧ_ОТ_OPENWEATHERMAP';
-      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
-
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-
-        const speed = data.wind.speed;     // м/с
-        const deg = data.wind.deg;         // градусы (0 — север, 90 — восток и т.д.)
-
-        console.log(`Ветер: ${speed} м/с, Направление: ${deg}°`);
-
-        // переводим скорость в градусы смещения (в 0.01 градусах ≈ 1 км)
-        const distanceKm = speed * 3; // например, сдвигаем на 3 секунды полёта
-        const angleRad = deg * Math.PI / 180;
-
-        // примерно пересчитываем расстояние в градусы (1° ~ 111 км)
-        const dLat = (distanceKm * Math.cos(angleRad)) / 111;
-        const dLon = (distanceKm * Math.sin(angleRad)) / (111 * Math.cos(lat * Math.PI / 180));
-
-        const newLat = lat + dLat;
-        const newLon = lon + dLon;
-
-        console.log(`Новая позиция круга: ${newLat}, ${newLon}`);
-
-        // обновляем позицию круга
-        if (circle) map.geoObjects.remove(circle);
-        circle = new ymaps.Circle([
-          [newLat, newLon],
-          15000
-        ], {}, {
-          fillColor: "#87CEEB",
-          fillOpacity: 0.2,
-          strokeColor: "#0000FF",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
-
-        map.geoObjects.add(circle);
-        map.setCenter([newLat, newLon]);
-      } catch (err) {
-        console.error("Ошибка загрузки ветра:", err);
-      }
-    }
-
-    // инициализация карты
     ymaps.ready(function () {
-      map = new ymaps.Map("map", {
-        center: [centerLat, centerLon],
-        zoom: 8
+      var map = new ymaps.Map("map", {
+        center: [51.5, 0.0], // Гринвич
+        zoom: 10
       });
 
-      // рисуем исходный круг и сразу обновляем с учетом ветра
-      fetchWindAndUpdateCircle(centerLat, centerLon);
+      // Затемнение всей карты
+      var mask = new ymaps.Rectangle([[85, -179.999], [-85, 179.999]], {}, {
+        fillColor: 'rgba(0,0,0,0.5)',
+        strokeWidth: 0
+      });
+
+      // Прозрачный круг (пробитое "отверстие")
+      var hole = new ymaps.Circle([[51.5, 0.0], 15000], {}, {
+        fillColor: '#FFFFFF',
+        fillOpacity: 1
+      });
+
+      map.geoObjects.add(mask);
+      map.geoObjects.add(hole);
     });
   </script>
 </body>
 </html>
+
+
