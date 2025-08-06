@@ -1,52 +1,55 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>Карта с радиусом 15 км</title>
-    <meta charset="utf-8" />
-    <style>
-      html, body, #map {
-        height: 100%;
-        margin: 0;
-        padding: 0;
-      }
-    </style><script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU" type="text/javascript"></script>
-    <script>
-      let map;
+<head>
+  <meta charset="utf-8">
+  <title>Карта с радиусом 35 км (Яндекс)</title>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+  <script>
+    ymaps.ready(function () {
+      const map = new ymaps.Map("map", {
+        center: [53.9, 27.5667], // Минск
+        zoom: 8
+      });
+
       let circle;
 
-      function initMap() {
-        map = new google.maps.Map(document.getElementById("map"), {
-          center: { lat: 51.5, lng: 0.0 }, // Гринвич
-          zoom: 8,
+      map.events.add('click', function (e) {
+        const coords = e.get('coords');
+
+        if (circle) {
+          map.geoObjects.remove(circle);
+        }
+
+        circle = new ymaps.Circle([
+          coords,
+          35000 // радиус в метрах (35 км)
+        ], {}, {
+          fillColor: "#FF0000",
+          fillOpacity: 0.2,
+          strokeColor: "#FF0000",
+          strokeOpacity: 0.6,
+          strokeWidth: 2
         });
 
-        map.addListener("click", function (e) {
-          const latLng = e.latLng;
-
-          if (circle) circle.setMap(null);
-
-          circle = new google.maps.Circle({
-            strokeColor: "#FF0000",
-            strokeOpacity: 0.8,
-            strokeWeight: 2,
-            fillColor: "#FF0000",
-            fillOpacity: 0.15,
-            map: map,
-            center: latLng,
-            radius: 15000, // 15 км
-          });
-
-          map.panTo(latLng);
-        });
-      }
-
-      window.onload = initMap;
-    </script>
-  </head>
-  <body>
-    <div id="map"></div>
-  </body>
+        map.geoObjects.add(circle);
+        map.setCenter(coords);
+      });
+    });
+  </script>
+</head>
+<body>
+  <div id="map"></div>
+</body>
 </html>
+
 
 
 
