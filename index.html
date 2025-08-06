@@ -11,11 +11,56 @@
       margin: 0;
       padding: 0;
     }
+    #windInfo {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 10px;
+      border-radius: 8px;
+      font-family: sans-serif;
+      font-size: 14px;
+    }
   </style>
+</head>
+<body>
+  <div id="windInfo">Загрузка ветра...</div>
+  <div id="map"></div>
+
   <script>
+    let windDiv = document.getElementById("windInfo");
+    const apiKey = "080b3dab3f26f4e8d44b5d87f4c3ee78"; // 🔁 ВСТАВЬ СЮДА СВОЙ КЛЮЧ OpenWeatherMap
+
+    function updateWindData(lat, lon) {
+      fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}&lang=ru`)
+        .then(response => response.json())
+        .then(data => {
+          if (data.wind) {
+            const speed = data.wind.speed;
+            const deg = data.wind.deg;
+            const dir = getWindDirection(deg);
+            windDiv.innerHTML = `🌬 Ветер: ${speed} м/с, ${dir} (${deg}°)`;
+          } else {
+            windDiv.innerHTML = "Нет данных о ветре";
+          }
+        })
+        .catch(err => {
+          windDiv.innerHTML = "Ошибка загрузки ветра";
+          console.error(err);
+        });
+    }
+
+    function getWindDirection(deg) {
+      const dirs = ['северный', 'северо-восточный', 'восточный', 'юго-восточный', 'южный', 'юго-западный', 'западный', 'северо-западный'];
+      const index = Math.round(deg / 45) % 8;
+      return dirs[index];
+    }
+
     ymaps.ready(function () {
+      const center = [51.5, 0.0]; // Гринвич
       const map = new ymaps.Map("map", {
-        center: [51.5,0.0], // Гринвич
+        center: center,
         zoom: 8
       });
 
@@ -30,7 +75,7 @@
 
         circle = new ymaps.Circle([
           coords,
-          15000 // радиус в метрах (15 км)
+          15000 // радиус 15 км
         ], {}, {
           fillColor: "#87CEEB",
           fillOpacity: 0.1,
@@ -41,12 +86,20 @@
 
         map.geoObjects.add(circle);
         map.setCenter(coords);
+
+        updateWindData(coords[0], coords[1]);
       });
+
+      // начальная загрузка ветра по центру карты
+      updateWindData(center[0], center[1]);
+
+      // обновляем ветер каждую минуту
+      setInterval(() => {
+        const currentCenter = map.getCenter();
+        updateWindData(currentCenter[0], currentCenter[1]);
+      }, 60000);
     });
   </script>
-</head>
-<body>
-  <div id="map"></div>
 </body>
 </html>
 
