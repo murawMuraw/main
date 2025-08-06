@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с ветром и историей перемещений</title>
+  <title>Карта с радиусом 15 км (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -13,129 +13,45 @@
     }
   </style>
   <script>
-    let map, circle, windTimer, arrow, label, pathLine;
-    let pathCoords = [];
-
-    const apiKey = `080b3dab3f26f4e8d44b5d87f4c3ee78`; // <-- вставь сюда свой API-ключ
-    const radiusMeters = 15000;
-    const updateInterval = 60 * 1000;
-    const metersPerDegree = 111320;
-
     ymaps.ready(function () {
-      map = new ymaps.Map("map", {
-        center: [51.5, 0.0],
+      const map = new ymaps.Map("map", {
+        center: [51.5,0.0], // Гринвич
         zoom: 8
       });
 
-      map.events.add('click', async function (e) {
+      let circle;
+
+      map.events.add('click', function (e) {
         const coords = e.get('coords');
 
-        clearPreviousObjects();
+        if (circle) {
+          map.geoObjects.remove(circle);
+        }
 
-        // Круг
-        circle = new ymaps.Circle([coords, radiusMeters], {}, {
+        circle = new ymaps.Circle([
+          coords,
+          15000 // радиус в метрах (15 км)
+        ], {}, {
           fillColor: "#87CEEB",
           fillOpacity: 0.1,
           strokeColor: "#87CEEB",
           strokeOpacity: 0.6,
           strokeWidth: 2
         });
+
         map.geoObjects.add(circle);
-
-        // Метка с текстом
-        label = new ymaps.Placemark(coords, {
-          iconCaption: "Загрузка ветра..."
-        }, {
-          preset: "islands#blueCircleDotIconWithCaption"
-        });
-        map.geoObjects.add(label);
-
-        // Линия перемещений
-        pathCoords = [coords];
-        pathLine = new ymaps.Polyline([pathCoords], {}, {
-          strokeColor: "#FF0000",
-          strokeWidth: 2
-        });
-        map.geoObjects.add(pathLine);
-
-        // Стрелка
-        arrow = new ymaps.Polyline([[coords, coords]], {}, {
-          strokeColor: "#000",
-          strokeWidth: 2,
-          strokeStyle: "shortdash"
-        });
-        map.geoObjects.add(arrow);
-
         map.setCenter(coords);
-        await applyWind();
-
-        windTimer = setInterval(applyWind, updateInterval);
       });
     });
-
-    function clearPreviousObjects() {
-      if (circle) map.geoObjects.remove(circle);
-      if (label) map.geoObjects.remove(label);
-      if (arrow) map.geoObjects.remove(arrow);
-      if (pathLine) map.geoObjects.remove(pathLine);
-      clearInterval(windTimer);
-      circle = arrow = label = pathLine = null;
-      pathCoords = [];
-    }
-
-    async function applyWind() {
-      if (!circle) return;
-
-      const coords = circle.geometry.getCoordinates();
-      const lat = coords[0];
-      const lon = coords[1];
-
-      try {
-        const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`);
-        const data = await response.json();
-
-     //   if (!data.wind || typeof data.wind.speed !== "number" || typeof data.wind.deg !== "number") {
-      //      throw new Error("Некорректные данные ветра");
-
-        if (data.wind) {
-          const speed = data.wind.speed; // м/с
-          const deg = data.wind.deg;     // градусы (0 - север)
-
-          // Направление ветра — вектор движения объекта
-          const rad = deg * Math.PI / 180;
-          const deltaLat = (speed * Math.sin(rad)) / metersPerDegree;
-          const deltaLon = (speed * Math.cos(rad)) / (metersPerDegree * Math.cos(lat * Math.PI / 180));
-          const newLat = lat + deltaLat;
-          const newLon = lon + deltaLon;
-          const newCoords = [newLat, newLon];
-
-          // Обновление позиции
-          circle.geometry.setCoordinates(newCoords);
-          label.geometry.setCoordinates(newCoords);
-          label.properties.set('iconCaption', `Ветер ${speed} м/с, ${deg}°`);
-
-          // История
-          pathCoords.push(newCoords);
-          pathLine.geometry.setCoordinates(pathCoords);
-
-          // Обновление стрелки
-          arrow.geometry.setCoordinates([newCoords, [
-            newLat + 0.02 * Math.sin(rad),
-            newLon + 0.02 * Math.cos(rad)
-          ]]);
-        }
-
-      } catch (err) {
-        console.error("Ошибка ветра:", err);
-        label.properties.set('iconCaption', "Ошибка ветра");
-      }
-    }
   </script>
 </head>
 <body>
   <div id="map"></div>
 </body>
 </html>
+
+
+
 
 
 
