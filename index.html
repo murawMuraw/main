@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Прозрачный круг на затемнённой карте (Яндекс)</title>
+  <title>Карта с радиусом 15 км (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -14,56 +14,35 @@
   </style>
   <script>
     ymaps.ready(function () {
-      const center = [51.5, 0.0]; // Гринвич
-      const radius = 15000; // 15 км
-
       const map = new ymaps.Map("map", {
-        center: center,
-        zoom: 9
+        center: [51.5,0.0], // Гринвич
+        zoom: 8
       });
 
-      const outerCoords = [
-        [85, -179.9999],
-        [85, 179.9999],
-        [-85, 179.9999],
-        [-85, -179.9999],
-        [85, -179.9999]
-      ];
+      let circle;
 
-      // Вырезаем круг в обратном порядке (по часовой стрелке!)
-      const hole = generateCircleCoordinates(center, radius, 100).reverse();
+      map.events.add('click', function (e) {
+        const coords = e.get('coords');
 
-      const mask = new ymaps.Polygon([outerCoords, hole], {}, {
-        fillColor: '#00000088', // затемнение
-        strokeWidth: 0,
-        fillRule: 'evenodd' // важно!
+        if (circle) {
+          map.geoObjects.remove(circle);
+        }
+
+        circle = new ymaps.Circle([
+          coords,
+          15000 // радиус в метрах (15 км)
+        ], {}, {
+          fillColor: "#FF0000",
+          fillOpacity: 0.2,
+          strokeColor: "#FF0000",
+          strokeOpacity: 0.6,
+          strokeWidth: 2
+        });
+
+        map.geoObjects.add(circle);
+        map.setCenter(coords);
       });
-
-      map.geoObjects.add(mask);
     });
-
-    function generateCircleCoordinates(center, radius, points) {
-      const coords = [];
-      const R = 6371000; // радиус Земли, м
-      const lat = center[0] * Math.PI / 180;
-      const lon = center[1] * Math.PI / 180;
-
-      for (let i = 0; i <= points; i++) {
-        const angle = 2 * Math.PI * i / points;
-        const dx = radius * Math.cos(angle);
-        const dy = radius * Math.sin(angle);
-
-        const latOffset = dy / R;
-        const lonOffset = dx / (R * Math.cos(lat));
-
-        coords.push([
-          (lat + latOffset) * 180 / Math.PI,
-          (lon + lonOffset) * 180 / Math.PI
-        ]);
-      }
-
-      return coords;
-    }
   </script>
 </head>
 <body>
