@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Прозрачный круг на карте</title>
+  <title>Прозрачный круг в затемнённой карте</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -17,28 +17,57 @@
   <div id="map"></div>
   <script>
     ymaps.ready(function () {
-      var map = new ymaps.Map("map", {
-        center: [51.5, 0.0], // Гринвич
+      const center = [51.5, 0.0]; // Гринвич
+      const radiusMeters = 15000; // 15 км
+
+      const map = new ymaps.Map("map", {
+        center: center,
         zoom: 10
       });
 
-      // Затемнение всей карты
-      var mask = new ymaps.Rectangle([[85, -179.999], [-85, 179.999]], {}, {
-        fillColor: 'rgba(0,0,0,0.5)',
+      // Функция генерации круга с координатами
+      function createCircleCoords(center, radius, points) {
+        const coords = [];
+        const lat = center[0] * Math.PI / 180;
+        const lon = center[1] * Math.PI / 180;
+        const earthRadius = 6378137;
+
+        for (let i = 0; i <= points; i++) {
+          const angle = 2 * Math.PI * i / points;
+          const dx = radius * Math.cos(angle);
+          const dy = radius * Math.sin(angle);
+
+          const latOffset = (dy / earthRadius) * (180 / Math.PI);
+          const lonOffset = (dx / (earthRadius * Math.cos(lat))) * (180 / Math.PI);
+
+          coords.push([center[0] + latOffset, center[1] + lonOffset]);
+        }
+
+        return coords;
+      }
+
+      // Координаты всей карты
+      const outerBounds = [
+        [85, -179.999],
+        [85, 179.999],
+        [-85, 179.999],
+        [-85, -179.999],
+        [85, -179.999] // замыкаем контур
+      ];
+
+      // Координаты "отверстия"
+      const hole = createCircleCoords(center, radiusMeters, 100);
+
+      const polygon = new ymaps.Polygon([outerBounds, hole], {}, {
+        fillColor: 'rgba(0, 0, 0, 0.5)',
         strokeWidth: 0
       });
 
-      // Прозрачный круг (пробитое "отверстие")
-      var hole = new ymaps.Circle([[51.5, 0.0], 15000], {}, {
-        fillColor: '#FFFFFF',
-        fillOpacity: 1
-      });
-
-      map.geoObjects.add(mask);
-      map.geoObjects.add(hole);
+      map.geoObjects.add(polygon);
     });
   </script>
 </body>
 </html>
+
 
 
