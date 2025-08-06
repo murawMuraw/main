@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с прозрачным кругом (Яндекс)</title>
+  <title>Прозрачный круг на затемнённой карте (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -15,46 +15,36 @@
   <script>
     ymaps.ready(function () {
       const center = [51.5, 0.0]; // Гринвич
-      const radius = 15000; // в метрах (15 км)
+      const radius = 15000; // 15 км
 
       const map = new ymaps.Map("map", {
         center: center,
         zoom: 9
       });
 
-      // Фоновый прямоугольник (покрывает всю карту)
-      const bounds = [
-        [85, -179.9999], // северо-запад
-        [-85, 179.9999]  // юго-восток
+      const outerCoords = [
+        [85, -179.9999],
+        [85, 179.9999],
+        [-85, 179.9999],
+        [-85, -179.9999],
+        [85, -179.9999]
       ];
 
-      const outerPolygon = new ymaps.Polygon([
-        [
-          // Внешний прямоугольник
-          [bounds[0][0], bounds[0][1]],
-          [bounds[0][0], bounds[1][1]],
-          [bounds[1][0], bounds[1][1]],
-          [bounds[1][0], bounds[0][1]],
-          [bounds[0][0], bounds[0][1]]
-        ],
-        // "дырка" в виде круга — координаты генерируются ниже
-        generateCircleCoordinates(center, radius, 100)
-      ], {
-        hintContent: "Затемнение с прозрачным кругом"
-      }, {
-        fillColor: '#00000088', // полупрозрачный чёрный
-        strokeColor: '#00000000', // без рамки
+      // Вырезаем круг в обратном порядке (по часовой стрелке!)
+      const hole = generateCircleCoordinates(center, radius, 100).reverse();
+
+      const mask = new ymaps.Polygon([outerCoords, hole], {}, {
+        fillColor: '#00000088', // затемнение
         strokeWidth: 0,
-        fillRule: "evenodd"
+        fillRule: 'evenodd' // важно!
       });
 
-      map.geoObjects.add(outerPolygon);
+      map.geoObjects.add(mask);
     });
 
-    // Функция генерации координат круга
     function generateCircleCoordinates(center, radius, points) {
       const coords = [];
-      const R = 6371000; // радиус Земли в метрах
+      const R = 6371000; // радиус Земли, м
       const lat = center[0] * Math.PI / 180;
       const lon = center[1] * Math.PI / 180;
 
