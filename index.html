@@ -52,16 +52,13 @@
             [90, -180]  // замыкание полигона
           ]
         ], {}, {
-          fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.5
-          strokeWidth: 0
-          zIndex: 100 // Устанавливаем zInd
+          fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.1
+          strokeWidth: 0,
+         zIndex: 100 // Устанавливаем zInd
         });
 
       
-// Обновляем границы карты 
-       map.setBounds(map.geoObjects.getBounds());
-
-      
+     
         // Добавляем полигон и круг на карту
         map.geoObjects.add(grayPolygon);
         map.geoObjects.add(circle);
@@ -75,6 +72,7 @@
   <div id="map"></div>
 </body>
 </html>
+
 
 
 
