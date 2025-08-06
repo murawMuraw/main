@@ -103,7 +103,7 @@
       const [lat, lon] = circle.geometry.getCoordinates();
       try {
         const wind = await getWindData(lat, lon);
-        const angleRad = wind.deg * Math.PI / 180;
+        const angleRad = ((wind.deg + 180) % 360) * Math.PI / 180;
         const speed = wind.speed; // м/с
 
         const dx = speed * Math.sin(angleRad);
@@ -132,6 +132,7 @@
 </script>
 </body>
 </html>
+
 
 
 
