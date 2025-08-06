@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с радиусом 35 км (Яндекс)</title>
+  <title>Карта с радиусом 15 км (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -15,7 +15,7 @@
   <script>
     ymaps.ready(function () {
       const map = new ymaps.Map("map", {
-        center: [53.9, 27.5667], // Минск
+        center: [51.5,0.0], // Гринвич
         zoom: 8
       });
 
@@ -30,7 +30,7 @@
 
         circle = new ymaps.Circle([
           coords,
-          35000 // радиус в метрах (35 км)
+          15000 // радиус в метрах (15 км)
         ], {}, {
           fillColor: "#FF0000",
           fillOpacity: 0.2,
@@ -49,6 +49,7 @@
   <div id="map"></div>
 </body>
 </html>
+
 
 
 
