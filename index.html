@@ -54,7 +54,7 @@
         ], {}, {
           fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.1
           strokeWidth: 0,
-         zIndex: 100 // Устанавливаем zInd
+      //   zIndex: 100 // Устанавливаем zInd
         });
 
       
@@ -63,6 +63,29 @@
         map.geoObjects.add(grayPolygon);
         map.geoObjects.add(circle);
         map.setCenter(coords);
+
+        // Создаем серый полигон, который будет покрывать всю карту
+grayPolygon = new ymaps.Polygon([
+    [
+        [90, -180], // верхний левый угол
+        [90, 180],  // верхний правый угол
+        [-90, 180], // нижний правый угол
+        [-90, -180],// нижний левый угол
+        [90, -180]  // замыкание полигона
+    ]
+], {}, {
+    fillColor: "rgba(128, 128, 128, 0.5)", // серый цвет с прозрачностью 0.5
+    strokeWidth: 0,
+    zIndex: 100 // Устанавливаем zIndex
+});
+
+// Добавляем полигон и круг на карту
+map.geoObjects.add(grayPolygon);
+map.geoObjects.add(circle);
+
+// Обновляем границы карты (если необходимо)
+ map.setBounds(map.geoObjects.getBounds());
+
       
       });
     });
@@ -72,6 +95,7 @@
   <div id="map"></div>
 </body>
 </html>
+
 
 
 
