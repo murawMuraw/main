@@ -18,31 +18,50 @@
 
 <script>
 ymaps.ready(function () {
+  const center = [51.5, 0.0]; // Центр — Гринвич
+  const radius = 15000; // 15 км
+
   const map = new ymaps.Map("map", {
-    center: [51.5, 0.0], // Гринвич
+    center: center,
     zoom: 10,
     controls: []
   });
 
-  // Центр круга
-  const center = [51.5, 0.0];
-  const radius = 15000; // 15 км
-
-  // Фоновый полигон (вся карта)
+  // Внешняя рамка всей карты — большой прямоугольник
   const outer = [
-    [90, -180],
-    [90, 180],
-    [-90, 180],
-    [-90, -180],
-    [90, -180]
+    [85, -180],
+    [85, 180],
+    [-85, 180],
+    [-85, -180],
+    [85, -180]
   ];
 
-  // "Отверстие" — круг с точками
-  const circle = ymaps.geometry.circle.getCoordinates(center, radius, 64);
-  
-  // Многоугольник с отверстием (дыркой)
-  const mask = new ymaps.Polygon([outer, circle], {}, {
-    fillColor: 'rgba(0,0,0,0.5)', // дымка
+  // Функция для генерации круга
+  function generateCircle(center, radiusMeters, pointsCount) {
+    const coords = [];
+    const R = 6378137; // Радиус Земли
+    const lat = center[0] * Math.PI / 180;
+    const lon = center[1] * Math.PI / 180;
+    const d = radiusMeters / R;
+
+    for (let i = 0; i <= pointsCount; i++) {
+      const angle = 2 * Math.PI * i / pointsCount;
+      const latOffset = Math.asin(Math.sin(lat) * Math.cos(d) +
+                          Math.cos(lat) * Math.sin(d) * Math.cos(angle));
+      const lonOffset = lon + Math.atan2(Math.sin(angle) * Math.sin(d) * Math.cos(lat),
+                                  Math.cos(d) - Math.sin(lat) * Math.sin(latOffset));
+      coords.push([
+        latOffset * 180 / Math.PI,
+        lonOffset * 180 / Math.PI
+      ]);
+    }
+    return coords;
+  }
+
+  const hole = generateCircle(center, radius, 100);
+
+  const mask = new ymaps.Polygon([outer, hole], {}, {
+    fillColor: 'rgba(0, 0, 0, 0.5)', // затемнение
     fillRule: 'evenodd',
     strokeWidth: 0
   });
@@ -52,11 +71,3 @@ ymaps.ready(function () {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
