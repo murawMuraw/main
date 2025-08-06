@@ -1,70 +1,82 @@
-<script>
-  let circle, wind = {speed: 0, deg: 0}; // deg — направление в градусах
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Карта с кругом и ветром</title>
+  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    let map, circle;
+    const centerLat = 51.5;
+    const centerLon = 0.0;
 
-  // Получение ветра из OpenWeather
-  async function fetchWind(lat, lon) {
-    const apiKey = '86e0eed4f14375c3b6f3212dfffed75b';
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+    // функция загрузки данных о ветре
+    async function fetchWindAndUpdateCircle(lat, lon) {
+      const apiKey = 'ВАШ_КЛЮЧ_ОТ_OPENWEATHERMAP';
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
 
-    const response = await fetch(url);
-    const data = await response.json();
-    wind = data.wind;
-    console.log('Wind:', wind);
-  }
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
 
-  ymaps.ready(function () {
-    const map = new ymaps.Map("map", {
-      center: [51.5, 0.0],
-      zoom: 8
-    });
+        const speed = data.wind.speed;     // м/с
+        const deg = data.wind.deg;         // градусы (0 — север, 90 — восток и т.д.)
 
-    map.events.add('click', async function (e) {
-      const coords = e.get('coords');
+        console.log(`Ветер: ${speed} м/с, Направление: ${deg}°`);
 
-      await fetchWind(coords[0], coords[1]);
+        // переводим скорость в градусы смещения (в 0.01 градусах ≈ 1 км)
+        const distanceKm = speed * 3; // например, сдвигаем на 3 секунды полёта
+        const angleRad = deg * Math.PI / 180;
 
-      if (circle) map.geoObjects.remove(circle);
+        // примерно пересчитываем расстояние в градусы (1° ~ 111 км)
+        const dLat = (distanceKm * Math.cos(angleRad)) / 111;
+        const dLon = (distanceKm * Math.sin(angleRad)) / (111 * Math.cos(lat * Math.PI / 180));
 
-      circle = new ymaps.Circle([
-        coords,
-        15000
-      ], {}, {
-        fillColor: "#87CEEB",
-        fillOpacity: 0.1,
-        strokeColor: "#87CEEB",
-        strokeOpacity: 0.6,
-        strokeWidth: 2
+        const newLat = lat + dLat;
+        const newLon = lon + dLon;
+
+        console.log(`Новая позиция круга: ${newLat}, ${newLon}`);
+
+        // обновляем позицию круга
+        if (circle) map.geoObjects.remove(circle);
+        circle = new ymaps.Circle([
+          [newLat, newLon],
+          15000
+        ], {}, {
+          fillColor: "#87CEEB",
+          fillOpacity: 0.2,
+          strokeColor: "#0000FF",
+          strokeOpacity: 0.6,
+          strokeWidth: 2
+        });
+
+        map.geoObjects.add(circle);
+        map.setCenter([newLat, newLon]);
+      } catch (err) {
+        console.error("Ошибка загрузки ветра:", err);
+      }
+    }
+
+    // инициализация карты
+    ymaps.ready(function () {
+      map = new ymaps.Map("map", {
+        center: [centerLat, centerLon],
+        zoom: 8
       });
 
-      map.geoObjects.add(circle);
-      map.setCenter(coords);
-
-      // Запуск перемещения
-      startWindMovement();
+      // рисуем исходный круг и сразу обновляем с учетом ветра
+      fetchWindAndUpdateCircle(centerLat, centerLon);
     });
-
-    function startWindMovement() {
-      setInterval(() => {
-        if (!circle || wind.speed === 0) return;
-
-        const coords = circle.geometry.getCoordinates();
-        const lat = coords[0];
-        const lon = coords[1];
-
-        // Направление ветра в градусах (метео: откуда дует)
-        const angleRad = (wind.deg + 180) * Math.PI / 180;
-
-        // Простейшее смещение: 1 м/с ~ 0.00001 градуса в широте
-        const dx = Math.cos(angleRad) * wind.speed * 0.00001;
-        const dy = Math.sin(angleRad) * wind.speed * 0.00001;
-
-        const newLat = lat + dy;
-        const newLon = lon + dx;
-
-        circle.geometry.setCoordinates([newLat, newLon]);
-        map.setCenter([newLat, newLon]);
-      }, 3000); // обновление каждые 3 секунды
-    }
-  });
-</script>
-
+  </script>
+</body>
+</html>
