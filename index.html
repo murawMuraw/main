@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с кругом 15 км по клику</title>
+  <title>Карта: круг + туман за пределами</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -14,43 +14,39 @@
   </style>
   <script>
     ymaps.ready(function () {
-      // Инициализируем карту без центра (временно ставим Минск)
+      // Центрируем карту на Гринвич
+      const greenwich = [51.4769, 0.0005];
       const map = new ymaps.Map("map", {
-        center: [0, 0], // Стартовая точка
-        zoom: 7
+        center: greenwich,
+        zoom: 9,
+        controls: []
       });
 
-      let circle = null;
-      let isFirstClick = true;
-
-      map.events.add('click', function (e) {
-        const coords = e.get('coords');
-
-        // При первом клике — меняем центр карты
-        if (isFirstClick) {
-          map.setCenter(coords, 9); // центр и зум
-          isFirstClick = false;
-        }
-
-        // Удаляем предыдущий круг
-        if (circle) {
-          map.geoObjects.remove(circle);
-        }
-
-        // Создаем новый круг радиусом 15 км
-        circle = new ymaps.Circle([
-          coords,
-          15000
-        ], {}, {
-          fillColor: "#FF0000",
-          fillOpacity: 0.2,
-          strokeColor: "#FF0000",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
-
-        map.geoObjects.add(circle);
+      // Прозрачный круг радиусом 35 км
+      const innerCircle = new ymaps.Circle([
+        greenwich,
+        35000
+      ], {}, {
+        fillColor: '#00FF0055', // полупрозрачный зеленый
+        strokeColor: '#00FF00',
+        strokeOpacity: 0.7,
+        strokeWidth: 2
       });
+
+      // Большая маска (квадрат 10000 км шириной), из которой вырежем круг
+      const mask = new ymaps.Polygon([
+        [
+          [90, -180], [90, 180], [-90, 180], [-90, -180], [90, -180]
+        ],
+        ymaps.geometry.Circle.getCircleGeometry(greenwich, 35000)
+      ], {}, {
+        fillColor: '#00000088', // полупрозрачная тень
+        strokeWidth: 0
+      });
+
+      // Добавляем на карту: сначала маску, потом круг
+      map.geoObjects.add(mask);
+      map.geoObjects.add(innerCircle);
     });
   </script>
 </head>
@@ -58,4 +54,5 @@
   <div id="map"></div>
 </body>
 </html>
+
 
