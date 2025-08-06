@@ -12,6 +12,9 @@
       padding: 0;
     }
   </style>
+</head>
+<body>
+  <div id="map"></div>
   <script>
     ymaps.ready(function () {
       const map = new ymaps.Map("map", {
@@ -19,67 +22,70 @@
         zoom: 8
       });
 
-      let grayMask;
+      let mask;
 
       map.events.add('click', function (e) {
         const coords = e.get('coords');
 
-        if (grayMask) {
-          map.geoObjects.remove(grayMask);
+        if (mask) {
+          map.geoObjects.remove(mask);
         }
 
-        // Внешний контур (вся карта)
-        const outerCoords = [
-          [90, -180],
-          [90, 180],
-          [-90, 180],
-          [-90, -180],
-          [90, -180]
+        // Внешний контур — вся карта
+        const outer = [
+          [85, -179.9999],
+          [85, 179.9999],
+          [-85, 179.9999],
+          [-85, -179.9999],
+          [85, -179.9999]
         ];
 
-        // Внутренний контур (дырка-круг)
+        // Круг — "дырка", которая должна быть по часовой стрелке!
         const hole = generateCircle(coords, 15000, 100).reverse();
 
-        grayMask = new ymaps.Polygon([outerCoords, hole], {}, {
-          fillColor: 'rgba(128, 128, 128, 0.5)', // серый с прозрачностью
+        // Создаём многоугольник с дыркой
+        mask = new ymaps.Polygon([outer, hole], {}, {
+          fillColor: 'rgba(128, 128, 128, 0.5)', // серый фон с прозрачностью
           strokeWidth: 0,
-          fillRule: 'evenodd' // важно!
+          fillRule: 'evenodd'
         });
 
-        map.geoObjects.add(grayMask);
+        map.geoObjects.add(mask);
         map.setCenter(coords);
       });
     });
 
-    // Генерация координат круга (дырки)
-    function generateCircle(center, radius, points) {
+    // Функция генерации координат круга (вырез)
+    function generateCircle(center, radius, steps) {
       const coords = [];
-      const R = 6371000; // радиус Земли, м
-      const lat = center[0] * Math.PI / 180;
-      const lon = center[1] * Math.PI / 180;
+      const R = 6371000; // радиус Земли в метрах
+      const latRad = center[0] * Math.PI / 180;
+      const lonRad = center[1] * Math.PI / 180;
 
-      for (let i = 0; i <= points; i++) {
-        const angle = 2 * Math.PI * i / points;
+      for (let i = 0; i <= steps; i++) {
+        const angle = (2 * Math.PI * i) / steps;
         const dx = radius * Math.cos(angle);
         const dy = radius * Math.sin(angle);
 
-        const latOffset = dy / R;
-        const lonOffset = dx / (R * Math.cos(lat));
+        const dLat = dy / R;
+        const dLon = dx / (R * Math.cos(latRad));
+
+        const lat = latRad + dLat;
+        const lon = lonRad + dLon;
 
         coords.push([
-          (lat + latOffset) * 180 / Math.PI,
-          (lon + lonOffset) * 180 / Math.PI
+          lat * 180 / Math.PI,
+          lon * 180 / Math.PI
         ]);
       }
 
       return coords;
     }
   </script>
-</head>
-<body>
-  <div id="map"></div>
 </body>
 </html>
+
+
 
 
 
