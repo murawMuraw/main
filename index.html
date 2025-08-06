@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с радиусом 15 км (Яндекс)</title>
+  <title>Карта с прозрачным кругом (Яндекс)</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -14,45 +14,69 @@
   </style>
   <script>
     ymaps.ready(function () {
+      const center = [51.5, 0.0]; // Гринвич
+      const radius = 15000; // в метрах (15 км)
+
       const map = new ymaps.Map("map", {
-        center: [51.5,0.0], // Гринвич
-        zoom: 8
+        center: center,
+        zoom: 9
       });
 
-      let circle;
+      // Фоновый прямоугольник (покрывает всю карту)
+      const bounds = [
+        [85, -179.9999], // северо-запад
+        [-85, 179.9999]  // юго-восток
+      ];
 
-      map.events.add('click', function (e) {
-        const coords = e.get('coords');
-
-        if (circle) {
-          map.geoObjects.remove(circle);
-        }
-
-        circle = new ymaps.Circle([
-          coords,
-          15000 // радиус в метрах (15 км)
-        ], {}, {
-          fillColor: "#FF0000",
-          fillOpacity: 0.2,
-          strokeColor: "#FF0000",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
-        });
-
-        map.geoObjects.add(circle);
-        map.setCenter(coords);
+      const outerPolygon = new ymaps.Polygon([
+        [
+          // Внешний прямоугольник
+          [bounds[0][0], bounds[0][1]],
+          [bounds[0][0], bounds[1][1]],
+          [bounds[1][0], bounds[1][1]],
+          [bounds[1][0], bounds[0][1]],
+          [bounds[0][0], bounds[0][1]]
+        ],
+        // "дырка" в виде круга — координаты генерируются ниже
+        generateCircleCoordinates(center, radius, 100)
+      ], {
+        hintContent: "Затемнение с прозрачным кругом"
+      }, {
+        fillColor: '#00000088', // полупрозрачный чёрный
+        strokeColor: '#00000000', // без рамки
+        strokeWidth: 0,
+        fillRule: "evenodd"
       });
+
+      map.geoObjects.add(outerPolygon);
     });
+
+    // Функция генерации координат круга
+    function generateCircleCoordinates(center, radius, points) {
+      const coords = [];
+      const R = 6371000; // радиус Земли в метрах
+      const lat = center[0] * Math.PI / 180;
+      const lon = center[1] * Math.PI / 180;
+
+      for (let i = 0; i <= points; i++) {
+        const angle = 2 * Math.PI * i / points;
+        const dx = radius * Math.cos(angle);
+        const dy = radius * Math.sin(angle);
+
+        const latOffset = dy / R;
+        const lonOffset = dx / (R * Math.cos(lat));
+
+        coords.push([
+          (lat + latOffset) * 180 / Math.PI,
+          (lon + lonOffset) * 180 / Math.PI
+        ]);
+      }
+
+      return coords;
+    }
   </script>
 </head>
 <body>
   <div id="map"></div>
 </body>
 </html>
-
-
-
-
-
-
-
