@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с ветром (Яндекс)</title>
+  <title>Карта с ветром и историей</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -29,9 +29,12 @@
   <div id="map"></div>
 
   <script>
+    const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
     let map, circle, windDirection = 0, windSpeed = 0;
     let circleCoords = [51.5, 0.0]; // Гринвич
     const radius = 15000; // радиус круга 15 км
+    let pathCoords = [circleCoords]; // массив для хранения истории
+    let polyline; // линия пути
 
     ymaps.ready(init);
 
@@ -49,27 +52,33 @@
         strokeWidth: 2
       });
 
+      polyline = new ymaps.Polyline(pathCoords, {}, {
+        strokeColor: "#FF0000",
+        strokeWidth: 3,
+        strokeOpacity: 0.8
+      });
+
       map.geoObjects.add(circle);
+      map.geoObjects.add(polyline);
 
       getWindData();
 
-      // каждые 60 секунд обновлять позицию круга
+      // каждые 60 секунд двигать круг
       setInterval(() => {
+        getWindData(); // обновим данные о ветре
         moveCircleWithWind();
       }, 60000);
     }
 
     function getWindData() {
-      // Укажи свой API-ключ OpenWeatherMap ниже
-      const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
       const [lat, lon] = circleCoords;
       const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
 
       fetch(url)
         .then(res => res.json())
         .then(data => {
-          windSpeed = data.wind.speed; // м/с
-          windDirection = data.wind.deg; // градусы
+          windSpeed = data.wind.speed;
+          windDirection = data.wind.deg;
           updateWindInfo();
         })
         .catch(err => {
@@ -84,16 +93,22 @@
     }
 
     function moveCircleWithWind() {
-      const distancePerMinute = windSpeed * 60; // метров
-
+      const distancePerMinute = windSpeed * 60; // в метрах за минуту
       const newCoords = movePoint(circleCoords, distancePerMinute, windDirection);
       circleCoords = newCoords;
 
+      // Обновить круг
       circle.geometry.setCoordinates(newCoords);
+
+      // Добавить точку в историю и обновить линию
+      pathCoords.push(newCoords);
+      polyline.geometry.setCoordinates(pathCoords);
+
+      // Центрировать карту на новой позиции
       map.setCenter(newCoords);
     }
 
-    // Функция для перемещения точки на заданное расстояние и угол
+    // Перевод координат на заданное расстояние и направление
     function movePoint([lat, lon], distanceMeters, bearingDegrees) {
       const R = 6371000; // радиус Земли в метрах
       const bearing = bearingDegrees * Math.PI / 180;
@@ -110,6 +125,7 @@
   </script>
 </body>
 </html>
+
 
 
 
