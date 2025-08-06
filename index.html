@@ -3,7 +3,7 @@
 
   // Получение ветра из OpenWeather
   async function fetchWind(lat, lon) {
-    const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
+    const apiKey = '86e0eed4f14375c3b6f3212dfffed75b';
     const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
 
     const response = await fetch(url);
@@ -67,3 +67,4 @@
     }
   });
 </script>
+
