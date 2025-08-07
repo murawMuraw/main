@@ -1,135 +1,270 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <title>Карта с кругом и ветром</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Движение круга по ветру</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
-    html, body, #map {
-      width: 100%;
-      height: 100%;
+    html, body {
       margin: 0;
       padding: 0;
+      height: 100%;
+      overflow: hidden;
     }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      filter: brightness(60%);
+    }
+
     #windInfo {
       position: absolute;
       top: 10px;
       left: 10px;
+      background: rgba(255, 255, 255, 0.9);
       padding: 10px;
-      background: rgba(255,255,255,0.9);
-      z-index: 1000;
+      border-radius: 10px;
       font-family: sans-serif;
       font-size: 14px;
+      z-index: 1000;
+    }
+
+    input, button {
+      margin: 3px 0;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    button {
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    hr {
+      margin: 10px 0;
     }
   </style>
 </head>
 <body>
-<div id="windInfo">Кликните на карте для создания круга</div>
-<div id="map"></div>
+  <div id="map"></div>
+  <div id="windInfo">
+    <div id="auth">
+      <input type="text" id="email" placeholder="Email" />
+      <input type="password" id="password" placeholder="Пароль" />
+      <button onclick="register()">Регистрация</button>
+      <button onclick="login()">Вход</button>
+      <button onclick="logout()" style="display:none" id="logoutBtn">Выход</button>
+    </div>
+    <hr />
+    <div>
+      <button onclick="saveTrajectory()">Сохранить путь</button>
+      <button onclick="loadTrajectory()">Загрузить путь</button>
+    </div>
+    <hr />
+    <div id="status">Кликните на карте для создания круга</div>
+  </div>
 
-<script>
-  const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
-  let map, circle, arrow, historyLine;
-  let moveTimer = null;
-  const path = [];
+  <script>
+    let map, circle, arrow, path = [], historyLine;
+    let token = localStorage.getItem('token');
 
-  // Получение ветра по координатам
-  function getWindData(lat, lon) {
-    return fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`)
-      .then(res => res.json())
-      .then(data => {
-        return {
-          speed: data.wind.speed,
-          deg: data.wind.deg
-        };
+    ymaps.ready(init);
+
+    function init() {
+      map = new ymaps.Map("map", {
+        center: [0, 0],
+        zoom: 3,
+        controls: []
       });
-  }
 
-  ymaps.ready(() => {
-    map = new ymaps.Map("map", {
-      center: [51.5, 0.0],
-      zoom: 5
-    });
-
-    map.events.add('click', async function (e) {
-      const coords = e.get('coords');
-
-      // Если круг уже есть, удаляем старые объекты и останавливаем таймер
-      if (circle) {
-        map.geoObjects.remove(circle);
-        map.geoObjects.remove(arrow);
-        map.geoObjects.remove(historyLine);
-        clearInterval(moveTimer);
-        path.length = 0;
-      }
-
-      // Создание круга в месте клика
-      circle = new ymaps.Circle([
-        coords,
-        15000
-      ], {}, {
-        fillColor: "#87CEEB",
-        fillOpacity: 0.15,
-        strokeColor: "#87CEEB",
-        strokeWidth: 2,
-        strokeOpacity: 0.6
-      });
-      map.geoObjects.add(circle);
-
-      // Стрелка направления ветра
-      arrow = new ymaps.Placemark(coords, {
-        iconCaption: "ветер"
-      }, {
-        preset: "islands#redArrowIcon",
-        iconRotate: true
-      });
-      map.geoObjects.add(arrow);
-
-      // Линия пути
       historyLine = new ymaps.Polyline([], {}, {
-        strokeColor: "#0000FF",
-        strokeWidth: 2,
-        strokeOpacity: 0.6
+        strokeColor: "#00F",
+        strokeWidth: 3
       });
       map.geoObjects.add(historyLine);
 
-      // Начинаем движение
-      startMoving();
-    });
-  });
+      map.events.add('click', function (e) {
+        const coords = e.get('coords');
+        startSimulation(coords);
+      });
 
-  function startMoving() {
-    moveTimer = setInterval(async () => {
-      const [lat, lon] = circle.geometry.getCoordinates();
-      try {
-        const wind = await getWindData(lat, lon);
-        const angleRad = ((wind.deg + 180) % 360) * Math.PI / 180;
-        const speed = wind.speed; // м/с
+      if (token) {
+        document.getElementById('logoutBtn').style.display = 'inline';
+      }
+    }
 
-        const dx = speed * Math.sin(angleRad);
-        const dy = -speed * Math.cos(angleRad);
+    function startSimulation(coords) {
+      if (circle) map.geoObjects.remove(circle);
+      if (arrow) map.geoObjects.remove(arrow);
+      path = [coords];
 
-        const newLat = lat + (dy / 111320); // примерно м -> градусы широты
-        const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360)); // долгота
+      circle = new ymaps.GeoObject({
+        geometry: { type: "Circle", coordinates: coords, radius: 15000 },
+        properties: { hintContent: "Круг" }
+      }, {
+        fillColor: "rgba(0, 0, 255, 0.2)",
+        strokeColor: "#0000FF",
+        strokeOpacity: 0.5,
+        strokeWidth: 2
+      });
 
-        const newCoords = [newLat, newLon];
+      arrow = new ymaps.Placemark(coords, {}, {
+        iconLayout: 'default#image',
+        iconImageHref: 'https://img.icons8.com/ios-filled/50/000000/arrow.png',
+        iconImageSize: [30, 30],
+        iconImageOffset: [-15, -15]
+      });
+
+      map.geoObjects.add(circle);
+      map.geoObjects.add(arrow);
+
+      getWindAndMove(coords);
+    }
+
+    async function getWindAndMove(coords) {
+      const lat = coords[0];
+      const lon = coords[1];
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=windspeed_10m,winddirection_10m&timezone=auto`);
+      const data = await res.json();
+
+      if (!data.hourly) {
+        document.getElementById("status").innerText = "Ошибка получения данных о ветре";
+        return;
+      }
+
+      const windSpeeds = data.hourly.windspeed_10m;
+      const windDirs = data.hourly.winddirection_10m;
+
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i >= windSpeeds.length) {
+          clearInterval(interval);
+          return;
+        }
+
+        const speed = windSpeeds[i]; // м/с
+        const dir = windDirs[i];     // градусы
+        const distance = speed * 60; // м за минуту
+        const rad = dir * Math.PI / 180;
+        const dx = distance * Math.sin(rad);
+        const dy = distance * Math.cos(rad);
+        const [lat, lon] = path[path.length - 1];
+        const deltaLat = dy / 111320;
+        const deltaLon = dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360);
+        const newCoords = [lat + deltaLat, lon + deltaLon];
+        path.push(newCoords);
+
         circle.geometry.setCoordinates(newCoords);
         arrow.geometry.setCoordinates(newCoords);
-        arrow.options.set('iconRotation', wind.deg);
-
-        // Добавляем точку в историю
-        path.push(newCoords);
         historyLine.geometry.setCoordinates(path);
 
-        // Обновляем информацию
-        document.getElementById('windInfo').innerText =
-          `Скорость ветра: ${wind.speed.toFixed(1)} м/с\nНаправление: ${wind.deg}°`;
-      } catch (e) {
-        console.error("Ошибка получения ветра:", e);
+        document.getElementById("status").innerText =
+          `Шаг ${i + 1}: Скорость ${speed} м/с, Направление ${dir}°`;
+
+        i++;
+      }, 1000); // 1 секунда на шаг
+    }
+
+    async function register() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Регистрация успешна!");
+      } else {
+        alert("Ошибка регистрации: " + data.error);
       }
-    }, 1000);
-  }
-</script>
+    }
+
+    async function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.token) {
+        token = data.token;
+        localStorage.setItem('token', token);
+        document.getElementById('logoutBtn').style.display = 'inline';
+        alert("Вход выполнен");
+      } else {
+        alert("Ошибка входа: " + data.error);
+      }
+    }
+
+    function logout() {
+      token = null;
+      localStorage.removeItem('token');
+      document.getElementById('logoutBtn').style.display = 'none';
+      alert("Вы вышли");
+    }
+
+    async function saveTrajectory() {
+      if (!token) {
+        alert("Войдите, чтобы сохранить путь");
+        return;
+      }
+
+      const res = await fetch('/api/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ trajectory: path })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Путь сохранён");
+      } else {
+        alert("Ошибка сохранения: " + data.error);
+      }
+    }
+
+    async function loadTrajectory() {
+      if (!token) {
+        alert("Войдите, чтобы загрузить путь");
+        return;
+      }
+
+      const res = await fetch('/api/trajectories', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      const data = await res.json();
+      if (res.ok && data.trajectories.length > 0) {
+        const coords = data.trajectories[data.trajectories.length - 1].trajectory;
+        path.length = 0;
+        path.push(...coords);
+        historyLine.geometry.setCoordinates(path);
+
+        if (circle && coords.length > 0) {
+          circle.geometry.setCoordinates(coords[coords.length - 1]);
+          arrow.geometry.setCoordinates(coords[coords.length - 1]);
+        }
+
+        alert("Загружен последний путь");
+      } else {
+        alert("Ошибка загрузки или нет данных");
+      }
+    }
+  </script>
 </body>
 </html>
-
