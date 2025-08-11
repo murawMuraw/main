@@ -65,12 +65,11 @@
       map.geoObjects.add(circle);
 
       // Стрелка ветра
-      arrow = new ymaps.Placemark(coords, {
-        iconCaption: "ветер"
-      }, {
-        preset: "islands#redArrowIcon",
-        iconRotate: true
-      });
+    arrow = new ymaps.Placemark(coords, {}, {
+    preset: 'islands#redArrowIcon',
+    iconRotate: true,
+    iconRotation: 0  // стартовое направление ветра, можно 0
+});
       map.geoObjects.add(arrow);
 
       // Линия истории пути
