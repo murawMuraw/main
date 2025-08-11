@@ -110,7 +110,7 @@
         const newCoords = [newLat, newLon];
         circle.geometry.setCoordinates(newCoords);
         arrow.geometry.setCoordinates(newCoords);
-        arrow.options.set('iconRotation', deg);
+        arrow.options.set('iconRotation', winDeg);
 
         // Добавляем в историю
         path.push(newCoords);
