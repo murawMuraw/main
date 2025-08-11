@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <title>Карта с кругом и ветром</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
@@ -25,24 +25,34 @@
   </style>
 </head>
 <body>
-  <div id="windInfo">Кликните на карте для создания круга</div>
-  <div id="map"></div>
+<div id="windInfo">Кликните на карте для создания круга</div>
+<div id="map"></div>
 
 <script>
+  const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
   let map, circle, arrow, historyLine;
   let moveTimer = null;
   const path = [];
 
+  function getWindData(lat, lon) {
+    return fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`)
+      .then(res => res.json())
+      .then(data => ({
+        speed: data.wind.speed,
+        deg: data.wind.deg
+      }));
+  }
+
   ymaps.ready(() => {
     map = new ymaps.Map("map", {
-      center: [51.5, 0.0], // Гринвич
+      center: [51.5, 0.0],
       zoom: 5
     });
 
     map.events.add('click', async function (e) {
       const coords = e.get('coords');
 
-      // Очистка старых объектов и таймера
+      // Очистка старых объектов
       if (circle) {
         map.geoObjects.remove(circle);
         map.geoObjects.remove(arrow);
@@ -51,7 +61,7 @@
         path.length = 0;
       }
 
-      // Создаем круг в точке клика
+      // Круг
       circle = new ymaps.Circle([
         coords,
         15000
@@ -64,15 +74,15 @@
       });
       map.geoObjects.add(circle);
 
-      // Стрелка ветра
-    arrow = new ymaps.Placemark(coords, {}, {
-    preset: 'islands#redArrowIcon',
-    iconRotate: true,
-    iconRotation: 0  // стартовое направление ветра, можно 0
-});
+      // Стрелка текущей точки
+      arrow = new ymaps.Placemark(coords, {}, {
+        preset: 'islands#redArrowIcon',
+        iconRotate: true,
+        iconRotation: 0
+      });
       map.geoObjects.add(arrow);
 
-      // Линия истории пути
+      // Линия пути
       historyLine = new ymaps.Polyline([], {}, {
         strokeColor: "#0000FF",
         strokeWidth: 2,
@@ -80,7 +90,6 @@
       });
       map.geoObjects.add(historyLine);
 
-      // Запускаем движение круга с учётом ветра
       startMoving();
     });
   });
@@ -89,18 +98,12 @@
     moveTimer = setInterval(async () => {
       const [lat, lon] = circle.geometry.getCoordinates();
       try {
-        // Запрос к серверной функции api/wind
-        const response = await fetch(`/api/wind?lat=${lat}&lon=${lon}`);
-        if (!response.ok) throw new Error('Ошибка запроса ветра');
-        const data = await response.json();
+        const wind = await getWindData(lat, lon);
 
-        if (!data.wind) throw new Error('Нет данных о ветре');
+        // Поворот на направление ветра
+        const angleRad = ((wind.deg + 180) % 360) * Math.PI / 180;
+        const speed = wind.speed;
 
-        const speed = data.wind.speed; // м/с
-        const deg = data.wind.deg;     // градусы, направление ветра
-
-        // Перемещаем круг по ветру (в ту сторону, куда дует ветер)
-        const angleRad = (deg) * Math.PI / 180;
         const dx = speed * Math.sin(angleRad);
         const dy = -speed * Math.cos(angleRad);
 
@@ -110,24 +113,19 @@
         const newCoords = [newLat, newLon];
         circle.geometry.setCoordinates(newCoords);
         arrow.geometry.setCoordinates(newCoords);
-        arrow.options.set('iconRotation', winDeg);
+        arrow.options.set('iconRotation', wind.deg);
 
-        // Добавляем в историю
         path.push(newCoords);
         historyLine.geometry.setCoordinates(path);
 
-        // Обновляем инфо
         document.getElementById('windInfo').innerText =
-          `Скорость ветра: ${speed.toFixed(1)} м/с\nНаправление: ${deg}°`;
-
+          `Скорость ветра: ${wind.speed.toFixed(1)} м/с\nНаправление: ${wind.deg}°`;
       } catch (e) {
-        console.error("Ошибка ветра:", e);
+        console.error("Ошибка получения ветра:", e);
         document.getElementById('windInfo').innerText = "Ошибка получения данных ветра";
       }
-    }, 10000); // обновление каждые 10 секунд
+    }, 10000); // каждые 10 сек
   }
 </script>
 </body>
 </html>
-
-
