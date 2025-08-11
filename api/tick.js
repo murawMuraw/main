@@ -1,42 +1,44 @@
-import Redis from 'ioredis';
-const redis = new Redis(process.env.REDIS_URL);
+// api/tick.js
+import { state } from './store.js';
+import fetch from 'node-fetch';
 
-const apiKey = process.env.OPENWEATHER_KEY;
-
-async function getWind(lat, lon) {
-  const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`);
-  const data = await r.json();
-  return { speed: data.wind.speed, deg: data.wind.deg };
-}
+const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78'; // твой ключ OWM
 
 export default async function handler(req, res) {
-  let state = await redis.get('circleState');
-  if (!state) {
-    state = {
-      coords: [51.5, 0.0],
-      path: [[51.5, 0.0]],
-      windSpeed: 0,
-      windDeg: 0
-    };
-  } else {
-    state = JSON.parse(state);
+  if (!state.running) {
+    return res.status(200).json(state);
   }
 
-  const [lat, lon] = state.coords;
-  const wind = await getWind(lat, lon);
+  try {
+    // Получаем ветер для текущих координат
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${state.lat}&lon=${state.lon}&appid=${apiKey}&units=metric`;
+    const response = await fetch(url);
+    const data = await response.json();
 
-  const angleRad = ((wind.deg + 180) % 360) * Math.PI / 180;
-  const dx = wind.speed * Math.sin(angleRad);
-  const dy = -wind.speed * Math.cos(angleRad);
+    if (!data.wind) {
+      return res.status(500).json({ error: 'Нет данных о ветре' });
+    }
 
-  const newLat = lat + (dy / 111320);
-  const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360));
+    const speed = data.wind.speed;
+    const deg = data.wind.deg;
 
-  state.coords = [newLat, newLon];
-  state.windSpeed = wind.speed;
-  state.windDeg = wind.deg;
-  state.path.push(state.coords);
+    // Перевод направления в радианы (в сторону ветра)
+    const angleRad = (deg * Math.PI) / 180;
 
-  await redis.set('circleState', JSON.stringify(state));
-  res.status(200).json(state);
+    const dx = speed * Math.sin(angleRad);
+    const dy = -speed * Math.cos(angleRad);
+
+    const newLat = state.lat + dy / 111320;
+    const newLon = state.lon + dx / (40075000 * Math.cos(state.lat * Math.PI / 180) / 360);
+
+    state.lat = newLat;
+    state.lon = newLon;
+    state.wind = { speed, deg };
+    state.path.push([newLat, newLon]);
+
+    res.status(200).json(state);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Ошибка при обновлении координат' });
+  }
 }
