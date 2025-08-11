@@ -1,7 +1,7 @@
-import Redis from 'ioredis';
-const redis = new Redis(process.env.REDIS_URL);
+// api/stop.js
+import { state } from './store.js';
 
-export default async function handler(req, res) {
-  await redis.del('circleState');
-  res.status(200).json({ message: 'Состояние сброшено' });
+export default function handler(req, res) {
+  state.running = false;
+  res.status(200).json({ message: 'Маршрут остановлен' });
 }
