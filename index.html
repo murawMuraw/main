@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Карта с маршрутом по ветру</title>
+  <title>Карта с кругом и ветром</title>
   <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
   <style>
     html, body, #map {
@@ -11,98 +11,128 @@
       margin: 0;
       padding: 0;
     }
-    #info {
+    #windInfo {
       position: absolute;
       top: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255, 255, 255, 0.8);
-      padding: 5px 10px;
-      border-radius: 5px;
-      font-family: Arial, sans-serif;
+      left: 10px;
+      padding: 10px;
+      background: rgba(255,255,255,0.9);
       z-index: 1000;
+      font-family: sans-serif;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    #stopBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 8px 12px;
+      background: red;
+      color: white;
+      cursor: pointer;
+      z-index: 1001;
     }
   </style>
 </head>
 <body>
-  <div id="info">Кликните на карте для запуска</div>
-  <div id="map"></div>
+<div id="windInfo">Кликните на карте для запуска</div>
+<div id="stopBtn" style="display:none;">Закончить</div>
+<div id="map"></div>
 
-  <script>
-    ymaps.ready(init);
+<script>
+  let map, circle, arrow, historyLine;
+  let moveTimer = null;
+  const path = [];
 
-    let map, circle, windArrow, pathLine;
-    let timerId = null;
+  ymaps.ready(() => {
+    map = new ymaps.Map("map", {
+      center: [51.5, 0.0],
+      zoom: 5
+    });
 
-    function init() {
-      map = new ymaps.Map("map", {
-        center: [51.5, 0.0], // Гринвич
-        zoom: 8
-      });
-
-      map.events.add('click', async function (e) {
-        const coords = e.get('coords');
-        await fetch(`/api/state?start=${coords[0]},${coords[1]}`);
-        document.getElementById('info').innerText = 'Маршрут запущен';
-
-        if (timerId) clearInterval(timerId);
-        timerId = setInterval(updatePosition, 10000); // каждые 10 секунд
-        updatePosition();
-      });
-    }
-
-    async function updatePosition() {
+    map.events.add('click', async function (e) {
+      const coords = e.get('coords');
       try {
-        const res = await fetch('/api/tick');
-        const state = await res.json();
+        const res = await fetch(`/api/state?start=${coords.join(',')}`);
+        if (!res.ok) throw new Error("Ошибка старта на сервере");
 
-        if (!state.lat || !state.lon) return;
+        // Очищаем старые объекты
+        if (circle) {
+          map.geoObjects.remove(circle);
+          map.geoObjects.remove(arrow);
+          map.geoObjects.remove(historyLine);
+          clearInterval(moveTimer);
+          path.length = 0;
+        }
 
-        // Отрисовка круга
-        if (circle) map.geoObjects.remove(circle);
-        circle = new ymaps.Circle([
-          [state.lat, state.lon],
-          15000
-        ], {}, {
+        // Круг
+        circle = new ymaps.Circle([coords, 15000], {}, {
           fillColor: "#87CEEB",
-          fillOpacity: 0.1,
+          fillOpacity: 0.15,
           strokeColor: "#87CEEB",
-          strokeOpacity: 0.6,
-          strokeWidth: 2
+          strokeWidth: 2,
+          strokeOpacity: 0.6
         });
         map.geoObjects.add(circle);
 
-        // Отрисовка стрелки ветра
-        if (windArrow) map.geoObjects.remove(windArrow);
-        if (state.wind) {
-          const iconLayout = ymaps.templateLayoutFactory.createClass(
-            `<div style="transform: rotate(${state.wind.deg}deg); font-size: 24px;">⬆️</div>`
-          );
-          windArrow = new ymaps.Placemark([state.lat, state.lon], {}, {
-            iconLayout: iconLayout,
-            iconShape: { type: 'Circle', coordinates: [0, 0], radius: 10 }
-          });
-          map.geoObjects.add(windArrow);
+        // Стрелка
+        arrow = new ymaps.Placemark(coords, {}, {
+          preset: "islands#redArrowIcon",
+          iconRotate: true
+        });
+        map.geoObjects.add(arrow);
 
-          document.getElementById('info').innerText =
-            `Ветер: ${state.wind.speed.toFixed(1)} м/с, направление ${state.wind.deg}°`;
-        }
+        // Линия пути
+        historyLine = new ymaps.Polyline([], {}, {
+          strokeColor: "#0000FF",
+          strokeWidth: 2,
+          strokeOpacity: 0.6
+        });
+        map.geoObjects.add(historyLine);
 
-        // Отрисовка истории пути
-        if (pathLine) map.geoObjects.remove(pathLine);
-        if (state.path && state.path.length > 1) {
-          pathLine = new ymaps.Polyline(state.path, {}, {
-            strokeColor: "#FF0000",
-            strokeWidth: 2
-          });
-          map.geoObjects.add(pathLine);
-        }
+        document.getElementById('stopBtn').style.display = 'block';
+        document.getElementById('windInfo').innerText = "Маршрут запущен...";
 
+        startMoving();
       } catch (err) {
-        console.error('Ошибка обновления:', err);
-        document.getElementById('info').innerText = 'Ошибка обновления';
+        console.error(err);
+        document.getElementById('windInfo').innerText = "Ошибка запуска маршрута";
       }
-    }
-  </script>
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', async () => {
+      await fetch('/api/stop');
+      clearInterval(moveTimer);
+      document.getElementById('windInfo').innerText = "Маршрут остановлен";
+      document.getElementById('stopBtn').style.display = 'none';
+    });
+  });
+
+  function startMoving() {
+    moveTimer = setInterval(async () => {
+      try {
+        // Запрашиваем с сервера новые координаты и данные ветра
+        const res = await fetch('/api/tick');
+        if (!res.ok) throw new Error("Ошибка запроса tick");
+
+        const data = await res.json();
+        const { lat, lon, windDeg, windSpeed } = data;
+
+        const newCoords = [lat, lon];
+        circle.geometry.setCoordinates(newCoords);
+        arrow.geometry.setCoordinates(newCoords);
+        arrow.options.set('iconRotation', windDeg);
+        path.push(newCoords);
+        historyLine.geometry.setCoordinates(path);
+
+        document.getElementById('windInfo').innerText =
+          `Скорость ветра: ${windSpeed.toFixed(1)} м/с\nНаправление: ${windDeg}°`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById('windInfo').innerText = "Ошибка получения данных";
+      }
+    }, 10000); // 10 сек
+  }
+</script>
 </body>
 </html>
