@@ -1,44 +1,33 @@
-// api/tick.js
-import { state } from './store.js';
-import fetch from 'node-fetch';
-
-const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78'; // твой ключ OWM
-
 export default async function handler(req, res) {
-  if (!state.running) {
-    return res.status(200).json(state);
-  }
-
   try {
-    // Получаем ветер для текущих координат
-    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${state.lat}&lon=${state.lon}&appid=${apiKey}&units=metric`;
-    const response = await fetch(url);
-    const data = await response.json();
+    // Получаем данные о ветре с OpenWeatherMap
+    const apiKey = process.env.OPENWEATHER_API_KEY;
+    const lat = req.query.lat || 51.5074; // Лондон по умолчанию
+    const lon = req.query.lon || -0.1278;
 
-    if (!data.wind) {
-      return res.status(500).json({ error: 'Нет данных о ветре' });
+    const response = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Ошибка запроса: ${response.status}`);
     }
 
-    const speed = data.wind.speed;
-    const deg = data.wind.deg;
+    const data = await response.json();
 
-    // Перевод направления в радианы (в сторону ветра)
-    const angleRad = (deg * Math.PI) / 180;
+    const windDeg = data.wind?.deg ?? 0;
+    const windSpeed = data.wind?.speed ?? 0;
 
-    const dx = speed * Math.sin(angleRad);
-    const dy = -speed * Math.cos(angleRad);
-
-    const newLat = state.lat + dy / 111320;
-    const newLon = state.lon + dx / (40075000 * Math.cos(state.lat * Math.PI / 180) / 360);
-
-    state.lat = newLat;
-    state.lon = newLon;
-    state.wind = { speed, deg };
-    state.path.push([newLat, newLon]);
-
-    res.status(200).json(state);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка при обновлении координат' });
+    res.status(200).json({
+      success: true,
+      windDeg,
+      windSpeed,
+    });
+  } catch (error) {
+    console.error("Ошибка в /api/tick.js:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 }
