@@ -1,22 +1,27 @@
-let currentLat = null;
+let let currentLat = null;
 let currentLon = null;
 
 export default async function handler(req, res) {
   try {
     const apiKey = process.env.OPENWEATHER_API_KEY;
 
-    // если фронт передаёт lat/lon → берём их
-    const startLat = parseFloat(req.query.lat || 0);
-    const startLon = parseFloat(req.query.lon || 0);
+    const qLat = req.query.lat ? parseFloat(req.query.lat) : null;
+    const qLon = req.query.lon ? parseFloat(req.query.lon) : null;
 
-    // при первом запуске сохраняем стартовую точку
+    // при первом запуске — запоминаем стартовую точку, если фронт её передал
     if (currentLat === null || currentLon === null) {
-      currentLat = startLat;
-      currentLon = startLon;
+      if (qLat !== null && qLon !== null) {
+        currentLat = qLat;
+        currentLon = qLon;
+      } else {
+        // запасной вариант (например, Лондон), если фронт вообще ничего не дал
+        currentLat = 51.5074;
+        currentLon = -0.1278;
+      }
     }
 
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${startLat}&lon=${startLon}&appid=${apiKey}&units=metric`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${currentLat}&lon=${currentLon}&appid=${apiKey}&units=metric`
     );
 
     if (!response.ok) {
