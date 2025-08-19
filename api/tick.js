@@ -1,27 +1,14 @@
-let let currentLat = null;
-let currentLon = null;
+let currentLat = 51.5074; // Лондон по умолчанию
+let currentLon = -0.1278;
 
 export default async function handler(req, res) {
   try {
     const apiKey = process.env.OPENWEATHER_API_KEY;
-
-    const qLat = req.query.lat ? parseFloat(req.query.lat) : null;
-    const qLon = req.query.lon ? parseFloat(req.query.lon) : null;
-
-    // при первом запуске — запоминаем стартовую точку, если фронт её передал
-    if (currentLat === null || currentLon === null) {
-      if (qLat !== null && qLon !== null) {
-        currentLat = qLat;
-        currentLon = qLon;
-      } else {
-        // запасной вариант (например, Лондон), если фронт вообще ничего не дал
-        currentLat = 51.5074;
-        currentLon = -0.1278;
-      }
-    }
+    const lat = req.query.lat || 51.5074;
+    const lon = req.query.lon || -0.1278;
 
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${currentLat}&lon=${currentLon}&appid=${apiKey}&units=metric`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
     );
 
     if (!response.ok) {
@@ -33,8 +20,8 @@ export default async function handler(req, res) {
     const windDeg = data.wind?.deg ?? 0;
     const windSpeed = data.wind?.speed ?? 0;
 
-    // шаг движения
-    const step = windSpeed * 0.001;
+    // --- движение ---
+    const step = windSpeed * 0.001; // масштаб перемещения (чем больше число, тем быстрее круг)
     const rad = (windDeg * Math.PI) / 180;
 
     currentLat += step * Math.cos(rad);
