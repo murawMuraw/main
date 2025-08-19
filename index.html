@@ -111,27 +111,30 @@
   function startMoving() {
     moveTimer = setInterval(async () => {
       try {
-        // Запрашиваем с сервера новые координаты и данные ветра
         const res = await fetch('/api/tick');
         if (!res.ok) throw new Error("Ошибка запроса tick");
 
         const data = await res.json();
         const { lat, lon, windDeg, windSpeed } = data;
 
+        // Двигаем круг и стрелку
         const newCoords = [lat, lon];
         circle.geometry.setCoordinates(newCoords);
         arrow.geometry.setCoordinates(newCoords);
         arrow.options.set('iconRotation', windDeg);
+
+        // Обновляем путь
         path.push(newCoords);
         historyLine.geometry.setCoordinates(path);
 
+        // Вывод данных ветра
         document.getElementById('windInfo').innerText =
           `Скорость ветра: ${windSpeed.toFixed(1)} м/с\nНаправление: ${windDeg}°`;
       } catch (err) {
         console.error(err);
         document.getElementById('windInfo').innerText = "Ошибка получения данных";
       }
-    }, 10000); // 10 сек
+    }, 10000); // обновление каждые 10 сек
   }
 </script>
 </body>
