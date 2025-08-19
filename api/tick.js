@@ -1,14 +1,22 @@
-let currentLat = 51.5074; // Лондон по умолчанию
-let currentLon = -0.1278;
+let currentLat = null;
+let currentLon = null;
 
 export default async function handler(req, res) {
   try {
     const apiKey = process.env.OPENWEATHER_API_KEY;
-    const lat = req.query.lat || 51.5074;
-    const lon = req.query.lon || -0.1278;
+
+    // если фронт передаёт lat/lon → берём их
+    const startLat = parseFloat(req.query.lat || 0);
+    const startLon = parseFloat(req.query.lon || 0);
+
+    // при первом запуске сохраняем стартовую точку
+    if (currentLat === null || currentLon === null) {
+      currentLat = startLat;
+      currentLon = startLon;
+    }
 
     const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
+      `https://api.openweathermap.org/data/2.5/weather?lat=${startLat}&lon=${startLon}&appid=${apiKey}&units=metric`
     );
 
     if (!response.ok) {
@@ -20,8 +28,8 @@ export default async function handler(req, res) {
     const windDeg = data.wind?.deg ?? 0;
     const windSpeed = data.wind?.speed ?? 0;
 
-    // --- движение ---
-    const step = windSpeed * 0.001; // масштаб перемещения (чем больше число, тем быстрее круг)
+    // шаг движения
+    const step = windSpeed * 0.001;
     const rad = (windDeg * Math.PI) / 180;
 
     currentLat += step * Math.cos(rad);
