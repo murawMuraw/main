@@ -4,6 +4,7 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENWEATHER_API_KEY;
     const lat = req.query.lat || 51.5074; // Лондон по умолчанию
     const lon = req.query.lon || -0.1278;
+    console.log("API KEY:", apiKey ? "есть" : "нет");
 
     const response = await fetch(
       `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`
