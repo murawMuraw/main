@@ -101,7 +101,7 @@
         const wind = await getWindData(lat, lon);
 
         // Поворот на направление ветра
-        const angleRad = ((wind.deg + 90) % 360) * Math.PI / 180;
+        const angleRad = ((wind.deg - 90) % 360) * Math.PI / 180;
         const speed = wind.speed;
 
         const dx = speed * Math.sin(angleRad);
