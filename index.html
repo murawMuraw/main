@@ -1,32 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Карта с кругом и ветром</title>
-  <script src="https://api-maps.yandex.ru/2.1/?lang=ru_RU"></script>
-  <style>
-    html, body, #map {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    #windInfo {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      padding: 10px;
-      background: rgba(255,255,255,0.9);
-      z-index: 1000;
-      font-family: sans-serif;
-      font-size: 14px;
-    }
-  </style>
-</head>
-<body>
-<div id="windInfo">Кликните на карте для создания круга</div>
-<div id="map"></div>
-
 <script>
   const apiKey = '080b3dab3f26f4e8d44b5d87f4c3ee78';
   let map, circle, arrow, historyLine;
@@ -39,8 +10,8 @@
       .then(res => res.json())
       .then(data => {
         return {
-          speed: data.wind.speed,
-          deg: data.wind.deg
+          speed: data.wind.speed, // м/с
+          deg: data.wind.deg      // откуда дует
         };
       });
   }
@@ -54,7 +25,7 @@
     map.events.add('click', async function (e) {
       const coords = e.get('coords');
 
-      // Если круг уже есть, удаляем старые объекты и останавливаем таймер
+      // Если круг уже есть, очищаем
       if (circle) {
         map.geoObjects.remove(circle);
         map.geoObjects.remove(arrow);
@@ -63,7 +34,7 @@
         path.length = 0;
       }
 
-      // Создание круга в месте клика
+      // Круг
       circle = new ymaps.Circle([
         coords,
         10000
@@ -76,7 +47,7 @@
       });
       map.geoObjects.add(circle);
 
-      // Стрелка направления ветра
+      // Стрелка
       arrow = new ymaps.Placemark(coords, {
         iconCaption: "ветер"
       }, {
@@ -85,7 +56,7 @@
       });
       map.geoObjects.add(arrow);
 
-      // Линия пути
+      // Линия траектории
       historyLine = new ymaps.Polyline([], {}, {
         strokeColor: "#0000FF",
         strokeWidth: 2,
@@ -93,7 +64,7 @@
       });
       map.geoObjects.add(historyLine);
 
-      // Начинаем движение
+      // Запуск движения
       startMoving();
     });
   });
@@ -103,32 +74,31 @@
       const [lat, lon] = circle.geometry.getCoordinates();
       try {
         const wind = await getWindData(lat, lon);
-        const angleRad = ((wind.deg + 180) % 360) * Math.PI / 180;
-        const speed = wind.speed; // м/с
 
-        const dx = speed * Math.sin(angleRad);
-        const dy = -speed * Math.cos(angleRad);
+        // угол КУДА дует ветер
+        const moveAngle = (wind.deg + 180) * Math.PI / 180;
 
-        const newLat = lat + (dy / 111320); // примерно м -> градусы широты
-        const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360)); // долгота
+        const dx = wind.speed * Math.cos(moveAngle);
+        const dy = wind.speed * Math.sin(moveAngle);
+
+        const newLat = lat + (dy / 111320); 
+        const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360));
 
         const newCoords = [newLat, newLon];
         circle.geometry.setCoordinates(newCoords);
         arrow.geometry.setCoordinates(newCoords);
-        arrow.options.set('iconRotation', wind.deg);
+        arrow.options.set('iconRotation', (wind.deg + 180) % 360);
 
-        // Добавляем точку в историю
+        // История
         path.push(newCoords);
         historyLine.geometry.setCoordinates(path);
 
-        // Обновляем информацию
+        // Текст
         document.getElementById('windInfo').innerText =
-          `Скорость ветра: ${wind.speed.toFixed(1)} м/с\nНаправление: ${wind.deg}°`;
+          `Скорость ветра: ${wind.speed.toFixed(1)} м/с\nНаправление (куда дует): ${(wind.deg + 180) % 360}°`;
       } catch (e) {
         console.error("Ошибка получения ветра:", e);
       }
     }, 1000);
   }
 </script>
-</body>
-</html>
