@@ -1,7 +1,10 @@
-// api/stop.js
-import { state } from './store.js';
+import { stopMoving } from './path.js';
 
 export default function handler(req, res) {
-  state.running = false;
-  res.status(200).json({ message: 'Маршрут остановлен' });
+  if (req.method === 'POST') {
+    stopMoving();
+    res.status(200).json({ success: true });
+  } else {
+    res.status(405).end();
+  }
 }
