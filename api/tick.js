@@ -1,54 +1,32 @@
+import { addPoint, isRunning } from './path.js';
+
+const apiKey = process.env.OPENWEATHER_API_KEY;
+
+async function getWindData(lat, lon) {
+  const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`);
+  const data = await res.json();
+  return { speed: data.wind.speed, deg: data.wind.deg };
+}
+
 export default async function handler(req, res) {
+  if (!isRunning()) {
+    return res.status(200).json({ message: 'stopped' });
+  }
+
+  let [lat, lon] = [51.5, 0.0];
   try {
-    const apiKey = process.env.OPENWEATHER_API_KEY;
+    const wind = await getWindData(lat, lon);
+    const angleRad = ((wind.deg - 90) % 360) * Math.PI / 180;
+    const dx = wind.speed * Math.sin(angleRad);
+    const dy = -wind.speed * Math.cos(angleRad);
 
-    const qLat = req.query.lat ? parseFloat(req.query.lat) : null;
-    const qLon = req.query.lon ? parseFloat(req.query.lon) : null;
+    const newLat = lat + (dy / 111320);
+    const newLon = lon + (dx / (40075000 * Math.cos(lat * Math.PI / 180) / 360));
 
-    // при первом запуске — запоминаем стартовую точку, если фронт её передал
-    if (currentLat === null || currentLon === null) {
-      if (qLat !== null && qLon !== null) {
-        currentLat = qLat;
-        currentLon = qLon;
-      } else {
-        // запасной вариант (например, Лондон), если фронт вообще ничего не дал
-        currentLat = 51.5074;
-        currentLon = -0.1278;
-      }
-    }
+    addPoint([newLat, newLon]);
 
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${currentLat}&lon=${currentLon}&appid=${apiKey}&units=metric`
-    );
-
-    if (!response.ok) {
-      throw new Error(`Ошибка запроса: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    const windDeg = data.wind?.deg ?? 0;
-    const windSpeed = data.wind?.speed ?? 0;
-
-    // шаг движения
-    const step = windSpeed * 0.001;
-    const rad = (windDeg * Math.PI) / 180;
-
-    currentLat += step * Math.cos(rad);
-    currentLon += step * Math.sin(rad);
-
-    res.status(200).json({
-      success: true,
-      lat: currentLat,
-      lon: currentLon,
-      windDeg,
-      windSpeed,
-    });
-  } catch (error) {
-    console.error("Ошибка в /api/tick.js:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-    });
+    res.status(200).json({ success: true, lat: newLat, lon: newLon });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 }
